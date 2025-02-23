@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Responsive Snake Game</title>
+  <style>
+    /* Global Modern UI */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    #score {
+      margin-top: 20px;
+      font-size: 24px;
+    }
+    /* Top Controls */
+    #top-controls {
+      margin-top: 10px;
+    }
+    #top-controls button {
+      background-color: #ff9800;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    /* Game Container */
+    #game-container {
+      position: relative;
+      width: 90vmin;
+      height: 90vmin;
+      max-width: 600px;
+      max-height: 600px;
+      margin: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      border-radius: 10px;
+      background-color: #2a2a2a;
+    }
+    #game-canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      display: block;
+    }
+    /* Overlays: start, pause, game over */
+    .overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.85);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+      width: 80%;
+    }
+    .overlay button {
+      background-color: #4caf50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    /* Joystick: Draggable, only visible during gameplay */
+    #joystick-container {
+      display: none;
+      margin-bottom: 20px;
+    }
+    #draggable-joystick {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      touch-action: none;
+      margin: 0 auto;
+    }
+    #joystick-base {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255,255,255,0.1);
+      border-radius: 50%;
+    }
+    #joystick-knob {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: #4caf50;
+      border-radius: 50%;
+      left: 40px;
+      top: 40px;
+      touch-action: none;
+      cursor: pointer;
+    }
+    /* Start Menu Additional Styling */
+    #start-menu select, 
+    #start-menu input[type="checkbox"], 
+    #start-menu input[type="color"] {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="top-controls">
+    <button id="pause-btn" style="display:none;">Pause</button>
+  </div>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <!-- Start Menu Overlay -->
+    <div id="start-menu" class="overlay">
+      <h2>Snake Game</h2>
+      <p id="high-score-start">Highest Score: 0</p>
+      <div>
+        <label>
+          <input type="checkbox" id="pass-through-toggle">
+          Enable Wall Pass-Through
+        </label>
+      </div>
+      <div>
+        <label>
+          Snake Color:
+          <input type="color" id="snake-color" value="#4caf50">
+        </label>
+      </div>
+      <div>
+        <label>
+          <input type="checkbox" id="sound-toggle" checked>
+          Sound Effects
+        </label>
+      </div>
+      <div>
+        <label>
+          Difficulty:
+          <select id="difficulty-select">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+      </div>
+      <button id="start-btn">Start Game</button>
+    </div>
+    <!-- Pause Menu Overlay -->
+    <div id="pause-menu" class="overlay">
+      <h2>Game Paused</h2>
+      <button id="resume-btn">Resume</button>
+      <button id="pause-home-btn">Home Menu</button>
+    </div>
+    <!-- Game Over Overlay -->
+    <div id="game-over" class="overlay">
+      <h2>Game Over!</h2>
+      <p id="final-score"></p>
+      <p id="high-score-display"></p>
+      <button id="restart-btn">Play Again</button>
+      <button id="over-home-btn">Home Menu</button>
+    </div>
+  </div>
+  <!-- Draggable Joystick (visible during gameplay) -->
+  <div id="joystick-container">
+    <div id="draggable-joystick">
+      <div id="joystick-base"></div>
+      <div id="joystick-knob"></div>
+    </div>
+  </div>
+  <script>
+    // DOM Elements
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const startMenu = document.getElementById('start-menu');
+    const pauseMenu = document.getElementById('pause-menu');
+    const gameOverMenu = document.getElementById('game-over');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const resumeBtn = document.getElementById('resume-btn');
+    const pauseHomeBtn = document.getElementById('pause-home-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const overHomeBtn = document.getElementById('over-home-btn');
+    const highScoreStart = document.getElementById('high-score-start');
+    const finalScoreEl = document.getElementById('final-score');
+    const highScoreDisplay = document.getElementById('high-score-display');
+    const passThroughToggle = document.getElementById('pass-through-toggle');
+    const snakeColorInput = document.getElementById('snake-color');
+    const soundToggle = document.getElementById('sound-toggle');
+    const difficultySelect = document.getElementById('difficulty-select');
+    const joystickContainer = document.getElementById('joystick-container');
+    const joystickKnob = document.getElementById('joystick-knob');
+    const draggableJoystick = document.getElementById('draggable-joystick');
+
+    // Game variables
+    let gridSize = 20, cellSize;
+    let snake = [];
+    let food = {};
+    let direction = 'right', nextDirection = 'right';
+    let score = 0;
+    let highScore = localStorage.getItem('snakeHighScore') || 0;
+    let gameState = 'start'; // 'start', 'running', 'paused', 'gameover'
+    let accumulator = 0, lastTime = performance.now();
+    let highRewardTimer = 0, highRewardDuration = 5000;
+
+    // Difficulty settings variables
+    let initialGameSpeed, minGameSpeed, defaultFoodReward, highFoodReward, speedIncrement;
+    let gameSpeed; // current game speed in ms
+
+    // Set up difficulty based on selection
+    function setDifficultySettings() {
+      const diff = difficultySelect.value;
+      if(diff === 'easy'){
+        initialGameSpeed = 300;
+        minGameSpeed = 200;
+        defaultFoodReward = 10;
+        highFoodReward = 30;
+        speedIncrement = 5;
+      } else if(diff === 'normal'){
+        initialGameSpeed = 250;
+        minGameSpeed = 150;
+        defaultFoodReward = 15;
+        highFoodReward = 50;
+        speedIncrement = 10;
+      } else if(diff === 'hard'){
+        initialGameSpeed = 200;
+        minGameSpeed = 100;
+        defaultFoodReward = 20;
+        highFoodReward = 70;
+        speedIncrement = 15;
+      }
+      gameSpeed = initialGameSpeed;
+    }
+
+    // Set up canvas dimensions
+    function initCanvas() {
+      const container = document.getElementById('game-container');
+      const size = Math.min(container.offsetWidth, container.offsetHeight);
+      canvas.width = size;
+      canvas.height = size;
+      cellSize = Math.floor(size / gridSize);
+    }
+
+    // Initialize game variables
+    function initGame() {
+      initCanvas();
+      snake = [
+        {x: 5, y: 10},
+        {x: 4, y: 10},
+        {x: 3, y: 10}
+      ];
+      placeFood();
+      score = 0;
+      scoreEl.textContent = `Score: ${score}`;
+      direction = 'right';
+      nextDirection = 'right';
+      accumulator = 0;
+      gameState = 'running';
+      lastTime = performance.now();
+      pauseMenu.style.display = 'none';
+      gameOverMenu.style.display = 'none';
+      startMenu.style.display = 'none';
+      pauseBtn.style.display = 'block';
+      joystickContainer.style.display = 'block';
+    }
+
+    // Place food randomly with a 10% chance for high-reward food
+    function placeFood() {
+      const isHigh = Math.random() < 0.1;
+      while(true){
+        const newFood = {
+          x: Math.floor(Math.random() * gridSize),
+          y: Math.floor(Math.random() * gridSize),
+          type: isHigh ? 'high' : 'default'
+        };
+        if(!snake.some(seg => seg.x === newFood.x && seg.y === newFood.y)){
+          food = newFood;
+          if(isHigh){
+            highRewardTimer = highRewardDuration;
+          }
+          break;
+        }
+      }
+    }
+
+    // Update game state (fixed timestep)
+    function update(dt) {
+      if(gameState !== 'running') return;
+
+      if(food.type === 'high'){
+        highRewardTimer -= dt;
+        if(highRewardTimer <= 0) placeFood();
+      }
+      
+      direction = nextDirection;
+      const head = { x: snake[0].x, y: snake[0].y };
+      switch(direction){
+        case 'up': head.y--; break;
+        case 'down': head.y++; break;
+        case 'left': head.x--; break;
+        case 'right': head.x++; break;
+      }
+      // Wall collision or pass-through
+      if(passThroughToggle.checked){
+        if(head.x < 0) head.x = gridSize - 1;
+        if(head.x >= gridSize) head.x = 0;
+        if(head.y < 0) head.y = gridSize - 1;
+        if(head.y >= gridSize) head.y = 0;
+      } else {
+        if(head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize){
+          playSound('collision');
+          gameOver();
+          return;
+        }
+      }
+      // Self-collision
+      if(snake.some(seg => seg.x === head.x && seg.y === head.y)){
+        playSound('collision');
+        gameOver();
+        return;
+      }
+      snake.unshift(head);
+      // Check if food is eaten
+      if(head.x === food.x && head.y === food.y){
+        const reward = (food.type === 'high') ? highFoodReward : defaultFoodReward;
+        score += reward;
+        scoreEl.textContent = `Score: ${score}`;
+        playSound('eat');
+        // Increase snake speed as score increases (lower gameSpeed means faster)
+        gameSpeed = Math.max(minGameSpeed, initialGameSpeed - Math.floor(score/50) * speedIncrement);
+        placeFood();
+      } else {
+        snake.pop();
+      }
+      draw();
+    }
+
+    // Render game elements
+    function draw() {
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Draw snake
+      ctx.fillStyle = snakeColorInput.value;
+      snake.forEach((seg, i) => {
+        const factor = 0.8 - i * 0.02;
+        const size = cellSize * factor;
+        const offset = (cellSize - size) / 2;
+        ctx.beginPath();
+        if(ctx.roundRect){
+          ctx.roundRect(seg.x * cellSize + offset, seg.y * cellSize + offset, size, size, cellSize * 0.2);
+        } else {
+          ctx.fillRect(seg.x * cellSize + offset, seg.y * cellSize + offset, size, size);
+        }
+        ctx.fill();
+      });
+      // Draw food
+      if(food.type === 'high'){
+        const pulse = 0.1 * Math.sin(performance.now()/200) + 0.9;
+        const sizeP = cellSize * 0.8 * pulse;
+        const offsetP = (cellSize - sizeP) / 2;
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        if(ctx.roundRect){
+          ctx.roundRect(food.x * cellSize + offsetP, food.y * cellSize + offsetP, sizeP, sizeP, cellSize * 0.3);
+        } else {
+          ctx.fillRect(food.x * cellSize + offsetP, food.y * cellSize + offsetP, sizeP, sizeP);
+        }
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        if(ctx.roundRect){
+          ctx.roundRect(food.x * cellSize + cellSize * 0.1, food.y * cellSize + cellSize * 0.1, cellSize * 0.8, cellSize * 0.8, cellSize * 0.3);
+        } else {
+          ctx.fillRect(food.x * cellSize + cellSize * 0.1, food.y * cellSize + cellSize * 0.1, cellSize * 0.8, cellSize * 0.8);
+        }
+        ctx.fill();
+      }
+    }
+
+    // Main game loop using fixed timestep
+    function gameLoop(currentTime) {
+      if(gameState === 'running'){
+        const dt = currentTime - lastTime;
+        lastTime = currentTime;
+        accumulator += dt;
+        while(accumulator >= gameSpeed){
+          update(gameSpeed);
+          accumulator -= gameSpeed;
+        }
+      }
+      if(gameState !== 'gameover'){
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    // End game and show Game Over overlay
+    function gameOver() {
+      gameState = 'gameover';
+      finalScoreEl.textContent = `Final Score: ${score}`;
+      if(score > highScore){
+        highScore = score;
+        localStorage.setItem('snakeHighScore', highScore);
+      }
+      highScoreDisplay.textContent = `Highest Score: ${highScore}`;
+      pauseBtn.style.display = 'none';
+      joystickContainer.style.display = 'none';
+      gameOverMenu.style.display = 'block';
+    }
+
+    // Toggle Pause/Resume (also via Space bar)
+    function togglePause() {
+      if(gameState === 'running'){
+        gameState = 'paused';
+        pauseBtn.textContent = 'Resume';
+        pauseMenu.style.display = 'block';
+        joystickContainer.style.display = 'none';
+        playSound('pause');
+      } else if(gameState === 'paused'){
+        gameState = 'running';
+        pauseBtn.textContent = 'Pause';
+        pauseMenu.style.display = 'none';
+        joystickContainer.style.display = 'block';
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+        playSound('pause');
+      }
+    }
+
+    // Show Home Menu (start menu)
+    function showHomeMenu() {
+      gameState = 'start';
+      startMenu.style.display = 'block';
+      pauseMenu.style.display = 'none';
+      gameOverMenu.style.display = 'none';
+      pauseBtn.style.display = 'none';
+      joystickContainer.style.display = 'none';
+      highScoreStart.textContent = `Highest Score: ${highScore}`;
+    }
+
+    // Start game from home menu
+    function startGame() {
+      setDifficultySettings();
+      initGame();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Keyboard controls (arrow keys and spacebar)
+    function handleKeydown(e) {
+      if(gameState === 'start') return;
+      const keyMap = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+      if(keyMap[e.key]){
+        e.preventDefault();
+        const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+        if(keyMap[e.key] !== opposite[direction]){
+          nextDirection = keyMap[e.key];
+        }
+      }
+      if(e.key === ' '){
+        e.preventDefault();
+        togglePause();
+      }
+    }
+
+    // Touch swipe on canvas
+    let touchStartX = 0, touchStartY = 0;
+    function handleTouchStart(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      e.preventDefault();
+    }
+    function handleTouchEnd(e) {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if(Math.abs(dx) > Math.abs(dy)){
+        if(dx > 0 && direction !== 'left') nextDirection = 'right';
+        else if(dx < 0 && direction !== 'right') nextDirection = 'left';
+      } else {
+        if(dy > 0 && direction !== 'up') nextDirection = 'down';
+        else if(dy < 0 && direction !== 'down') nextDirection = 'up';
+      }
+      e.preventDefault();
+    }
+
+    // Draggable Joystick Implementation
+    let joystickActive = false;
+    const joystickCenter = { x: 60, y: 60 };
+    const knobRadius = 20, maxDistance = 40;
+    function onJoystickPointerDown(e) {
+      joystickActive = true;
+      document.addEventListener('pointermove', onJoystickPointerMove);
+      document.addEventListener('pointerup', onJoystickPointerUp);
+      document.addEventListener('pointercancel', onJoystickPointerUp);
+    }
+    function onJoystickPointerMove(e) {
+      if(!joystickActive) return;
+      const rect = draggableJoystick.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
+      const pointerY = e.clientY - rect.top;
+      let dx = pointerX - joystickCenter.x;
+      let dy = pointerY - joystickCenter.y;
+      const dist = Math.hypot(dx, dy);
+      if(dist > maxDistance) {
+        dx = (dx / dist) * maxDistance;
+        dy = (dy / dist) * maxDistance;
+      }
+      joystickKnob.style.left = `${joystickCenter.x + dx - knobRadius}px`;
+      joystickKnob.style.top = `${joystickCenter.y + dy - knobRadius}px`;
+      if(dist > 10){
+        const angle = Math.atan2(dy, dx);
+        if(angle > -Math.PI/4 && angle <= Math.PI/4 && direction !== 'left') nextDirection = 'right';
+        else if(angle > Math.PI/4 && angle <= (3*Math.PI)/4 && direction !== 'up') nextDirection = 'down';
+        else if(angle <= -Math.PI/4 && angle > -(3*Math.PI)/4 && direction !== 'down') nextDirection = 'up';
+        else if((angle > (3*Math.PI)/4 || angle <= -(3*Math.PI)/4) && direction !== 'right') nextDirection = 'left';
+      }
+    }
+    function onJoystickPointerUp(e) {
+      joystickActive = false;
+      joystickKnob.style.left = `40px`;
+      joystickKnob.style.top = `40px`;
+      document.removeEventListener('pointermove', onJoystickPointerMove);
+      document.removeEventListener('pointerup', onJoystickPointerUp);
+      document.removeEventListener('pointercancel', onJoystickPointerUp);
+    }
+    joystickKnob.addEventListener('pointerdown', onJoystickPointerDown);
+
+    // Sound Effects using Web Audio API
+    function playSound(type) {
+      if(!soundToggle.checked) return;
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      if(type === 'eat'){
+        oscillator.frequency.value = 600;
+        gainNode.gain.value = 0.1;
+      } else if(type === 'collision'){
+        oscillator.frequency.value = 200;
+        gainNode.gain.value = 0.2;
+      } else if(type === 'pause'){
+        oscillator.frequency.value = 400;
+        gainNode.gain.value = 0.1;
+      }
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.1);
+    }
+
+    // Event Listeners
+    window.addEventListener('keydown', handleKeydown);
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchend', handleTouchEnd);
+    startBtn.addEventListener('click', startGame);
+    pauseBtn.addEventListener('click', togglePause);
+    resumeBtn.addEventListener('click', togglePause);
+    pauseHomeBtn.addEventListener('click', showHomeMenu);
+    restartBtn.addEventListener('click', () => { initGame(); requestAnimationFrame(gameLoop); });
+    overHomeBtn.addEventListener('click', showHomeMenu);
+    window.addEventListener('load', () => {
+      highScoreStart.textContent = `Highest Score: ${highScore}`;
+      startMenu.style.display = 'block';
+      pauseBtn.style.display = 'none';
+      joystickContainer.style.display = 'none';
+      initCanvas();
+    });
+    window.addEventListener('resize', () => { initCanvas(); draw(); });
+  </script>
+</body>
+</html>
