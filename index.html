@@ -344,7 +344,7 @@
       draw();
     }
 
-    // Render game elements
+    // Render game elements and the wall layer
     function draw() {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -384,6 +384,20 @@
           ctx.fillRect(food.x * cellSize + cellSize * 0.1, food.y * cellSize + cellSize * 0.1, cellSize * 0.8, cellSize * 0.8);
         }
         ctx.fill();
+      }
+      // Draw wall layer as a border
+      if(passThroughToggle.checked){
+        // Dashed green border if pass-through is enabled
+        ctx.strokeStyle = '#4caf50';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 5]);
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        ctx.setLineDash([]);
+      } else {
+        // Solid red border if walls are active
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
       }
     }
 
