@@ -2,15 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path fill='%2339C4A9' d='M32 0 C14 0 0 14 0 32 C0 50 14 64 32 64 C50 64 64 50 64 32 C64 14 50 0 32 0 Z M32 54 C18 54 6 42 6 32 C6 22 18 10 32 10 C46 10 58 22 58 32 C58 42 46 54 32 54 Z'/></svg>"
-    />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>Slither Rush</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path fill='%2339C4A9' d='M32 0 C14 0 0 14 0 32 C0 50 14 64 32 64 C50 64 64 50 64 32 C64 14 50 0 32 0 Z M32 54 C18 54 6 42 6 32 C6 22 18 10 32 10 C46 10 58 22 58 32 C58 42 46 54 32 54 Z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Snake Game</title>
     <style>
       /* -- Color Palette & Basic Styling -- */
       :root {
@@ -47,6 +41,17 @@
         padding: 16px;
         background: linear-gradient(135deg, var(--background) 0%, #172554 100%);
       }
+      /* -- Shake Animation for Game Board on Collision -- */
+      @keyframes shake {
+        0% { transform: translate(0px, 0px); }
+        25% { transform: translate(2px, -2px); }
+        50% { transform: translate(-2px, 2px); }
+        75% { transform: translate(2px, 2px); }
+        100% { transform: translate(0px, 0px); }
+      }
+      .shake {
+        animation: shake 0.3s;
+      }
       /* -- Header with Logo, Score, and Pause Button -- */
       .game-header {
         display: flex;
@@ -54,6 +59,8 @@
         align-items: center;
         width: 100%;
         max-width: 500px;
+        /* Hidden during main menu */
+        display: none;
       }
       .logo {
         font-size: 24px;
@@ -68,7 +75,7 @@
         background: var(--surface);
         padding: 8px 16px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -86,7 +93,7 @@
         border-radius: 12px;
         cursor: pointer;
         transition: transform 0.2s, background-color 0.2s;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       }
       #pause-btn:active {
         transform: scale(0.95);
@@ -128,6 +135,8 @@
         position: relative;
         width: 100%;
         max-width: 500px;
+        /* Hidden during main menu */
+        display: none;
       }
       #game-container {
         width: 100%;
@@ -136,7 +145,7 @@
         background: var(--surface);
         border-radius: 24px;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         border: 3px solid var(--surface-light);
         position: relative;
       }
@@ -148,7 +157,7 @@
       /* -- Circular Arrow Controls (visible during gameplay & pause) -- */
       #arrow-controls-container {
         display: none;
-        position: relative;
+        position: absolute;
         width: 180px;
         height: 180px;
         margin-top: 16px;
@@ -169,7 +178,7 @@
         border-radius: 20px;
         cursor: pointer;
         transition: transform 0.2s, background-color 0.2s;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       }
       #arrow-up {
         top: 0;
@@ -203,8 +212,8 @@
         text-align: center;
         width: 90%;
         max-width: 400px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(5px);
         display: none;
       }
@@ -232,16 +241,17 @@
       .overlay button:active {
         transform: scale(0.95);
       }
-      /* -- Pause Menu: Resume, Home, and Arrow Placement Dropdown -- */
-      #pause-menu label {
-        font-size: 16px;
-        margin: 8px 0;
-        display: block;
+      /* -- Pause Menu: Only Home button & Arrow Placement Dropdown -- */
+      #pause-menu {
+        /* Hidden until pause is triggered */
+        display: none;
       }
       /* -- Settings Dropdowns & Toggle (shared with main menu) -- */
       .settings-group {
         margin: 16px 0;
         text-align: left;
+        /* Hidden until a mode is selected */
+        display: none;
       }
       .settings-group label {
         display: flex;
@@ -255,7 +265,7 @@
         padding: 6px 10px;
         border-radius: 8px;
         background: var(--surface-light);
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         color: var(--text);
       }
       .toggle {
@@ -343,7 +353,7 @@
         }
       }
       /* -- Animations (e.g. collision shake) -- */
-      @keyframes shake {
+      @keyframes collisionShake {
         0% { transform: translate(0,0); }
         20% { transform: translate(-4px,4px); }
         40% { transform: translate(-4px,-4px); }
@@ -356,7 +366,7 @@
   <body>
     <!-- Header: Logo, Score, and Pause Button -->
     <div class="game-header">
-      <div class="logo">Slither Rush</div>
+      <div class="logo">Snake Game</div>
       <div id="score">0</div>
       <button id="pause-btn">Pause</button>
     </div>
@@ -384,12 +394,12 @@
         </div>
       </div>
     </div>
-    <!-- Start Menu (Game Info hidden here) -->
+    <!-- Start Menu (Main Menu) -->
     <div id="start-menu" class="overlay" style="position: fixed; display: block;">
-      <h2>Slither Rush</h2>
-      <p id="high-score-start">Highest Score: 0</p>
+      <h2>Snake Game</h2>
+      <!-- Mode Cards with no default selection -->
       <div class="game-modes">
-        <div class="mode-card active" data-mode="classic">
+        <div class="mode-card" data-mode="classic">
           <div class="mode-icon">🐍</div>
           <h3>Classic</h3>
           <p>Standard snake game</p>
@@ -410,30 +420,27 @@
           <p>Endless challenge with leveling</p>
         </div>
       </div>
-      <div class="settings-group">
-        <label>
-          Wall Pass-Through
+      <!-- These elements are hidden until a mode is selected -->
+      <p id="high-score-start" style="display:none;">Highest Score: 0</p>
+      <div class="settings-group" style="display:none;">
+        <label>Wall Pass-Through
           <label class="toggle">
             <input type="checkbox" id="pass-through-toggle" />
             <span class="slider"></span>
           </label>
         </label>
-        <label>
-          Difficulty:
+        <label>Difficulty:
           <select id="difficulty-select"></select>
         </label>
-        <label>
-          Arrow Placement:
+        <label>Arrow Placement:
           <select id="arrow-placement"></select>
         </label>
       </div>
-      <button id="start-btn">Start Game</button>
+      <button id="start-btn" style="display:none;">Start Game</button>
     </div>
-    <!-- Pause Menu: Resume, Arrow Placement, and Home Button -->
+    <!-- Pause Menu: Only Arrow Placement Dropdown and Home Button -->
     <div id="pause-menu" class="overlay">
-      <button id="resume-btn">Resume</button>
-      <label>
-        Arrow Placement:
+      <label>Arrow Placement:
         <select id="pause-arrow-placement"></select>
       </label>
       <button id="pause-home-btn">Home</button>
@@ -456,7 +463,6 @@
         pauseMenu = document.getElementById("pause-menu"),
         gameOverMenu = document.getElementById("game-over"),
         startBtn = document.getElementById("start-btn"),
-        resumeBtn = document.getElementById("resume-btn"),
         pauseHomeBtn = document.getElementById("pause-home-btn"),
         restartBtn = document.getElementById("restart-btn"),
         overHomeBtn = document.getElementById("over-home-btn"),
@@ -470,8 +476,10 @@
         gameModeDisplay = document.getElementById("game-mode-display"),
         timerFill = document.querySelector(".timer-fill"),
         gameInfo = document.getElementById("game-info"),
-        arrowControlsContainer = document.getElementById("arrow-controls-container");
-
+        arrowControlsContainer = document.getElementById("arrow-controls-container"),
+        gameWrapper = document.getElementById("game-wrapper"),
+        gameHeader = document.querySelector(".game-header");
+      
       /* --- Global Variables --- */
       let gridSize = 20,
         cellSize,
@@ -480,13 +488,18 @@
         direction = "right",
         nextDirection = "right",
         score = 0,
-        highScores = { classic: 0, timeattack: 0, maze: 0, infinite: 0 },
+        highScores = {
+          classic: 0,
+          timeattack: 0,
+          maze: 0,
+          infinite: 0
+        },
         gameState = "start",
         accumulator = 0,
         lastTime = performance.now(),
         collisionAnimationTime = 0,
         collisionAnimationDuration = 300,
-        gameMode = "classic",
+        gameMode = "",
         timeAttackTimer = 0,
         timeAttackDuration = 30000,
         timeAttackIncrement = 5000,
@@ -496,14 +509,13 @@
         specialFoodTimer = 0,
         specialFoodDuration = 5000,
         mazeTimer = 0,
-        mazeInterval = 10000, // regenerate maze obstacles every 10 seconds
+        mazeInterval = 10000,
         particles = [];
-
       // Scoring multipliers & base rewards (ensuring integer score)
       const difficultyMultipliers = { easy: 1, normal: 1.5, hard: 2 },
         modeMultipliers = { classic: 1, timeattack: 1.2, maze: 1.1, infinite: 1.3 },
         baseRewards = { default: 10, high: 20, special: 50, time: 5 };
-
+      
       // Colors
       const colors = {
         snake: { head: "#FFD700", body: "#FF8C00", glow: "rgba(255,165,0,0.4)" },
@@ -516,9 +528,10 @@
         obstacle: { color: "#708090", border: "#2F4F4F" },
         star: "#FFFF00",
       };
-
+      
       // Game speed settings
       let initialGameSpeed, minGameSpeed, speedIncrement, gameSpeed, specialFoodReward;
+      
       function setDifficultySettings() {
         const diff = difficultySelect.value;
         if (diff === "easy") {
@@ -541,23 +554,43 @@
         gameSpeed = initialGameSpeed;
         speedIncrement = 10;
       }
-
+      
       function initCanvas() {
-        canvas.width = document.getElementById("game-container").offsetWidth;
-        canvas.height = document.getElementById("game-container").offsetHeight;
+        const gameContainer = document.getElementById("game-container");
+        canvas.width = gameContainer.clientWidth;
+        canvas.height = gameContainer.clientHeight;
         cellSize = Math.floor(Math.min(canvas.width, canvas.height) / gridSize);
       }
 
+      
+      // Updated arrow controls placement
       function updateArrowControls() {
         const placement = arrowPlacementSelect.value;
-        // Persist arrow placement
+        console.log("here: ",placement);
         localStorage.setItem("snakeArrowPlacement", placement);
-        if (placement === "hidden") arrowControlsContainer.style.display = "none";
-        else arrowControlsContainer.style.display = "block";
-        // Update dropdown in pause menu as well
+        if (placement === "hidden") {
+          arrowControlsContainer.style.display = "none";
+        } else {
+          arrowControlsContainer.style.display = "block";
+          arrowControlsContainer.style.position = "absolute";
+          // Adjust position based on selection:
+          if (placement === "left") {
+            arrowControlsContainer.style.left = "10px";
+            arrowControlsContainer.style.right = "";
+            arrowControlsContainer.style.transform = "";
+          } else if (placement === "middle") {
+            arrowControlsContainer.style.left = "50%";
+            arrowControlsContainer.style.transform = "translateX(-50%)";
+            arrowControlsContainer.style.right = "";
+          } else if (placement === "right") {
+            arrowControlsContainer.style.right = "10px";
+            arrowControlsContainer.style.left = "";
+            arrowControlsContainer.style.transform = "";
+          }
+        }
         pauseArrowPlacement.value = placement;
       }
-
+      
       // Generate obstacles (for maze and infinite modes)
       function generateObstacles() {
         obstacles = [];
@@ -570,31 +603,35 @@
             if (horizontal) {
               startX = 1 + Math.floor(Math.random() * (gridSize - len - 2));
               startY = 1 + Math.floor(Math.random() * (gridSize - 3));
-              for (let j = 0; j < len; j++) obstacles.push({ x: startX + j, y: startY });
+              for (let j = 0; j < len; j++)
+                obstacles.push({ x: startX + j, y: startY });
             } else {
               startX = 1 + Math.floor(Math.random() * (gridSize - 3));
               startY = 1 + Math.floor(Math.random() * (gridSize - len - 2));
-              for (let j = 0; j < len; j++) obstacles.push({ x: startX, y: startY + j });
+              for (let j = 0; j < len; j++)
+                obstacles.push({ x: startX, y: startY + j });
             }
           }
-          obstacles = obstacles.filter(
-            (obs) => !snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
-          );
+          obstacles = obstacles.filter((obs) => !snake.some((seg) => seg.x === obs.x && seg.y === obs.y));
         }
       }
-
+      
       function initGame() {
         setDifficultySettings();
-        initCanvas();
-        // Show game info container when game starts
+        updateArrowControls();
+        gameWrapper.style.display = "block";
+        setTimeout(initCanvas, 0);
+
+        // Show game elements and hide main menu
         gameInfo.style.display = "flex";
-        // Hide main menu
+        gameHeader.style.display = "flex";
+        gameWrapper.style.display = "block";
         startMenu.style.display = "none";
         pauseMenu.style.display = "none";
         gameOverMenu.style.display = "none";
         // Show arrows if not hidden
         arrowControlsContainer.style.display = arrowPlacementSelect.value === "hidden" ? "none" : "block";
-        // Initialize snake and state
+        // Initialize snake and states
         snake = [
           { x: 5, y: 10 },
           { x: 4, y: 10 },
@@ -606,7 +643,9 @@
         if (gameMode === "timeattack") {
           timeAttackTimer = timeAttackDuration;
           document.querySelector(".timer-bar").style.display = "block";
-        } else document.querySelector(".timer-bar").style.display = "none";
+        } else {
+          document.querySelector(".timer-bar").style.display = "none";
+        }
         if (gameMode === "maze") generateObstacles();
         else obstacles = [];
         placeFood();
@@ -621,10 +660,12 @@
         particles = [];
         // Update game mode display text
         gameModeDisplay.textContent =
-          gameMode.charAt(0).toUpperCase() + gameMode.slice(1) + (gameMode === "infinite" ? " - Level " + gameLevel : "");
+          gameMode.charAt(0).toUpperCase() +
+          gameMode.slice(1) +
+          (gameMode === "infinite" ? " - Level " + gameLevel : "");
         requestAnimationFrame(gameLoop);
       }
-
+      
       function placeFood() {
         let rand = Math.random(),
           type;
@@ -644,17 +685,17 @@
         } while (!isPositionValid(newFood.x, newFood.y));
         food = newFood;
       }
-
+      
       function isPositionValid(x, y) {
         if (snake.some((seg) => seg.x === x && seg.y === y)) return false;
         if ((gameMode === "maze" || gameMode === "infinite") && obstacles.some((obs) => obs.x === x && obs.y === y)) return false;
         return true;
       }
-
+      
       function updateScore() {
         scoreEl.textContent = Math.floor(score);
       }
-
+      
       function getScoreIncrement(foodType) {
         const diffMult = difficultyMultipliers[difficultySelect.value] || 1;
         const modeMult = modeMultipliers[gameMode] || 1;
@@ -664,7 +705,7 @@
         else if (foodType === "time") return baseRewards.time * diffMult * modeMult;
         return 0;
       }
-
+      
       function spawnParticles(x, y) {
         // Spawn 10 particles at (x,y)
         for (let i = 0; i < 10; i++) {
@@ -678,14 +719,16 @@
           });
         }
       }
-
+      
       function updateSnake() {
         if (
           ["left", "right", "up", "down"].includes(nextDirection) &&
-          !((direction === "left" && nextDirection === "right") ||
+          !(
+            (direction === "left" && nextDirection === "right") ||
             (direction === "right" && nextDirection === "left") ||
             (direction === "up" && nextDirection === "down") ||
-            (direction === "down" && nextDirection === "up"))
+            (direction === "down" && nextDirection === "up")
+          )
         ) {
           direction = nextDirection;
         }
@@ -716,7 +759,7 @@
           placeFood();
         } else snake.pop();
       }
-
+      
       function checkCollisions() {
         const head = snake[0];
         for (let i = 1; i < snake.length; i++) {
@@ -731,7 +774,7 @@
           collisionAnimationTime = 0;
         }
       }
-
+      
       function updateParticles(deltaTime) {
         particles.forEach((p) => {
           p.x += p.vx;
@@ -740,7 +783,7 @@
         });
         particles = particles.filter((p) => p.life > 0);
       }
-
+      
       function drawSnakeSegment(seg, i) {
         const progress = i / (snake.length - 1);
         const size = cellSize * (0.9 - progress * 0.1);
@@ -761,7 +804,8 @@
             centerY = seg.y * cellSize + cellSize / 2,
             eyeSize = cellSize * 0.1,
             eyeOffset = cellSize * 0.2,
-            leftEye, rightEye;
+            leftEye,
+            rightEye;
           switch (direction) {
             case "up":
               leftEye = { x: centerX - eyeOffset, y: centerY - eyeOffset };
@@ -788,7 +832,7 @@
           ctx.fill();
         }
       }
-
+      
       function drawFood() {
         const { x, y, type } = food;
         ctx.save();
@@ -804,7 +848,7 @@
         ctx.fill();
         ctx.restore();
       }
-
+      
       function drawObstacles() {
         obstacles.forEach((obs) => {
           ctx.fillStyle = colors.obstacle.color;
@@ -816,7 +860,7 @@
           ctx.stroke();
         });
       }
-
+      
       function drawSpinningStar(x, y, size, angle) {
         ctx.save();
         ctx.translate(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
@@ -833,7 +877,7 @@
         ctx.fill();
         ctx.restore();
       }
-
+      
       function update(deltaTime) {
         accumulator += deltaTime;
         // Update maze obstacles every mazeInterval in maze mode
@@ -851,7 +895,11 @@
         }
         if (gameState === "collision") {
           collisionAnimationTime += deltaTime;
+          // Add shake effect to game board during collision
+          document.getElementById("game-container").classList.add("shake");
           if (collisionAnimationTime >= collisionAnimationDuration) endGame();
+        } else {
+          document.getElementById("game-container").classList.remove("shake");
         }
         if (gameMode === "timeattack" && gameState === "running") {
           timeAttackTimer -= deltaTime;
@@ -877,7 +925,7 @@
         }
         updateParticles(deltaTime);
       }
-
+      
       function drawGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawFood();
@@ -896,7 +944,7 @@
           drawSpinningStar(snake[0].x, snake[0].y, cellSize * 0.5, angle);
         }
       }
-
+      
       function gameLoop(timestamp) {
         let deltaTime = timestamp - lastTime;
         lastTime = timestamp;
@@ -906,7 +954,7 @@
         }
         if (gameState !== "ended") requestAnimationFrame(gameLoop);
       }
-
+      
       function endGame() {
         gameState = "ended";
         arrowControlsContainer.style.display = "none";
@@ -918,7 +966,7 @@
         highScoreDisplay.textContent = `High Score: ${Math.floor(highScores[gameMode] || 0)}`;
         gameOverMenu.style.display = "block";
       }
-
+      
       /* --- Controls --- */
       // Spacebar & Arrow Keys for controlling/pause/resume
       document.addEventListener("keydown", (e) => {
@@ -928,23 +976,29 @@
           else if (["ArrowLeft", "a"].includes(e.key) && direction !== "right") nextDirection = "left";
           else if (["ArrowRight", "d"].includes(e.key) && direction !== "left") nextDirection = "right";
           else if (e.key === " ") {
-            gameState = "paused";
-            pauseMenu.style.display = "block";
+            // Toggle pause/resume with spacebar using pause button functionality
+            pauseBtn.click();
           }
         } else if (gameState === "paused" && e.key === " ") {
-          gameState = "running";
-          pauseMenu.style.display = "none";
-          lastTime = performance.now();
-          requestAnimationFrame(gameLoop);
+          pauseBtn.click();
         }
       });
-      // Clickable Pause Button
+      
+      // Pause Button toggles pause/resume and changes its text
       pauseBtn.addEventListener("click", () => {
         if (gameState === "running") {
           gameState = "paused";
           pauseMenu.style.display = "block";
+          pauseBtn.textContent = "Resume";
+        } else if (gameState === "paused") {
+          gameState = "running";
+          pauseMenu.style.display = "none";
+          pauseBtn.textContent = "Pause";
+          lastTime = performance.now();
+          requestAnimationFrame(gameLoop);
         }
       });
+      
       // Circular arrow controls
       document.querySelectorAll(".arrow-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -959,37 +1013,42 @@
           nextDirection = newDir;
         });
       });
-      // Resume & Home buttons in Pause Menu
-      resumeBtn.addEventListener("click", () => {
-        if (gameState === "paused") {
-          gameState = "running";
-          pauseMenu.style.display = "none";
-          lastTime = performance.now();
-          requestAnimationFrame(gameLoop);
-        }
-      });
+      
+      // Pause Menu: Home button
       pauseHomeBtn.addEventListener("click", () => location.reload());
+      
       // Game Over Menu buttons
-      restartBtn.addEventListener("click", initGame);
-      overHomeBtn.addEventListener("click", () => location.reload());
-      // Start Menu: load persisted settings and start game
+      // restartBtn.addEventListener("click", initGame);
       startBtn.addEventListener("click", () => {
-        const storedScore = localStorage.getItem("snakeHighScore_" + gameMode) || 0;
-        highScores[gameMode] = parseInt(storedScore);
-        highScoreStart.textContent = `Highest Score: ${Math.floor(highScores[gameMode])}`;
-        initGame();
-      });
-      // Mode Selection (update high score display for selected mode)
+  if (!gameMode) {
+    alert("Please select a game mode before starting!");
+    return;
+  }
+  // Hide the start menu overlay
+  startMenu.style.display = "none";
+  // Start the game
+  initGame();
+});
+
+      overHomeBtn.addEventListener("click", () => location.reload());
+      
+      // Mode Selection: remove default selection; when a card is clicked, show the rest of the options
       document.querySelectorAll(".mode-card").forEach((btn) => {
         btn.addEventListener("click", () => {
+          // Remove active class from all cards then add to clicked card
           document.querySelectorAll(".mode-card").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
           gameMode = btn.getAttribute("data-mode");
           const storedScore = localStorage.getItem("snakeHighScore_" + gameMode) || 0;
           highScores[gameMode] = parseInt(storedScore);
           highScoreStart.textContent = `Highest Score: ${Math.floor(highScores[gameMode])}`;
+          // Reveal the high score, settings, and start button once a mode is selected
+          highScoreStart.style.display = "block";
+          document.querySelector(".settings-group").style.display = "block";
+          startBtn.style.display = "block";
         });
       });
+      
       // Persist difficulty and arrow placement settings
       function initSettings() {
         let diff = localStorage.getItem("snakeDifficulty") || "normal";
@@ -1000,12 +1059,14 @@
         difficultySelect.value = diff;
         localStorage.setItem("snakeDifficulty", diff);
         let arrowOpt = localStorage.getItem("snakeArrowPlacement") || "right";
+        console.log("arrowOpt", arrowOpt);
         arrowPlacementSelect.innerHTML =
           '<option value="left">Left</option>' +
           '<option value="middle">Middle</option>' +
           '<option value="right">Right</option>' +
           '<option value="hidden">Hidden</option>';
         arrowPlacementSelect.value = arrowOpt;
+        console.log("arrowPlacementSelect.value", arrowPlacementSelect.value)
         pauseArrowPlacement.innerHTML = arrowPlacementSelect.innerHTML;
         pauseArrowPlacement.value = arrowOpt;
       }
@@ -1017,6 +1078,7 @@
         arrowPlacementSelect.value = pauseArrowPlacement.value;
         updateArrowControls();
       });
+      
       // Polyfill for roundRect
       if (!CanvasRenderingContext2D.prototype.roundRect) {
         CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
