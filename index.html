@@ -604,7 +604,9 @@
   <div id="game-over" class="overlay">
     <button class="close-overlay" id="close-gameover-btn">✕</button>
     <h2>Game Over!</h2>
-    <h2><p id="final-score"></p></h2>
+    <h2>
+      <p id="final-score"></p>
+    </h2>
     <p id="high-score-display"></p>
     <button id="restart-btn">🔄 Restart</button>
     <button id="over-home-btn">🏠 Home</button>
@@ -691,7 +693,7 @@
       mazeInterval = 10000,
       particles = [];
 
-    // For assist pathfinding.
+    let foodEatenCounter = 0;
     let assistPath = null;
 
     // Scoring multipliers & base rewards.
@@ -720,7 +722,8 @@
       minGameSpeed,
       speedIncrement,
       gameSpeed,
-      specialFoodReward;
+      specialFoodReward,
+      foodForSpeedUp;
     function setDifficultySettings() {
       const diff = difficultySelect.value;
       if (diff === "easy") {
@@ -728,16 +731,19 @@
         minGameSpeed = 200;
         baseRewards.default = 10;
         baseRewards.high = 20;
+        foodForSpeedUp = 6;
       } else if (diff === "normal") {
         initialGameSpeed = 250;
         minGameSpeed = 150;
         baseRewards.default = 15;
         baseRewards.high = 30;
+        foodForSpeedUp = 4;
       } else if (diff === "hard") {
         initialGameSpeed = 200;
         minGameSpeed = 100;
         baseRewards.default = 20;
         baseRewards.high = 40;
+        foodForSpeedUp = 2;
       }
       specialFoodReward =
         baseRewards.special * (difficultyMultipliers[diff] || 1);
@@ -1037,11 +1043,17 @@
         score += Math.floor(getScoreIncrement(food.type));
         updateScore();
         spawnParticles(food.x, food.y);
-        gameSpeed = Math.max(gameSpeed - speedIncrement, minGameSpeed);
-        // In infinite mode, level increases with each food.
-        if (gameMode === "infinite") {
-          gameLevel++;
-          gameModeDisplay.textContent = `Infinite - Level ${gameLevel}`;
+        if (food.type === "time") timeAttackTimer += timeAttackIncrement;
+        foodEatenCounter++; // Increment food counter
+        if (foodEatenCounter >= foodForSpeedUp) {
+          console.log("foodEatenCounter: ", foodEatenCounter)
+          // In infinite mode, level increases with food.
+          if (gameMode === "infinite") {
+            gameLevel++;
+            gameModeDisplay.textContent = `Infinite - Speed ${gameLevel}`;
+          }
+          gameSpeed = Math.max(gameSpeed - speedIncrement, minGameSpeed);
+          foodEatenCounter = 0; // Reset counter after increasing speed
         }
         placeFood();
       } else {
