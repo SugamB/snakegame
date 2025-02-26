@@ -859,6 +859,7 @@
       document.getElementById("start-menu-content").style.display = "none";
       startMenu.style.display = "block";
       updateMainMenuHighScore();
+      location.reload();
     }
 
     function updateMainMenuHighScore() {
@@ -1567,9 +1568,6 @@
         `High Score: ${normalHS}` +
         (assistHS ? ` | Assisted: ${assistHS}` : "");
       gameOverMenu.style.display = "block";
-      // Replace header pause-btn with a Home button.
-      pauseBtn.textContent = "🏠";
-      pauseBtn.onclick = goToMainMenu;
     }
 
     /* --- Controls --- */
