@@ -132,6 +132,7 @@
     #pause-home-btn,
     #over-home-btn {
       background: var(--secondary);
+      text-align: center;
     }
 
     #start-btn {
@@ -283,7 +284,7 @@
     }
 
     .overlay button {
-      background: var(--primary);
+      background: var(--primary-dark);
       border: none;
       color: var(--text);
       padding: 12px 24px;
@@ -299,10 +300,6 @@
       transform: scale(0.95);
     }
 
-    /* Small X button in Game Over overlay. */
-    /* .close-overlay {
-      position: absolute; top: 8px; right: 8px; 
-    } */
     /* --- Pause Menu --- */
     #pause-menu .pause-header {
       display: flex;
@@ -316,12 +313,14 @@
     }
 
     /* -- Settings Dropdowns & Toggle (shared with main menu) -- */
-    .settings-group {
+    .settings-group,
+    .pause-content {
       margin: 16px 0;
       text-align: left;
     }
 
-    .settings-group label {
+    .settings-group label,
+    .pause-content label {
       display: flex;
       align-items: center;
       margin: 12px 0;
@@ -590,17 +589,22 @@
         Arrow Placement:
         <select id="pause-arrow-placement"></select>
       </label>
-      <!-- <p id="pause-highscore"></p> -->
-      <div class="pause-buttons">
-        <button id="pause-home-btn">🏠 Home</button>
-      </div>
+      <label>
+        Assist:
+        <label class="toggle">
+          <input type="checkbox" id="pause-assist-toggle" />
+          <span class="slider"></span>
+        </label>
+      </label>
     </div>
+    <button id="pause-home-btn">🏠 Home</button>
+  </div>
   </div>
   <!-- Game Over Menu -->
   <div id="game-over" class="overlay">
     <button class="close-overlay" id="close-gameover-btn">✕</button>
     <h2>Game Over!</h2>
-    <p id="final-score"></p>
+    <h2><p id="final-score"></p></h2>
     <p id="high-score-display"></p>
     <button id="restart-btn">🔄 Restart</button>
     <button id="over-home-btn">🏠 Home</button>
@@ -636,10 +640,19 @@
     const assistToggle = document.getElementById("assist-toggle");
     let assistMode = localStorage.getItem("snakeAssist") === "true";
     assistToggle.checked = assistMode;
+    const pauseAssistToggle = document.getElementById("pause-assist-toggle");
+    // Set its initial state to match the main assist toggle.
+    pauseAssistToggle.checked = assistMode;
+    pauseAssistToggle.addEventListener("change", () => {
+      assistMode = pauseAssistToggle.checked;
+      // Update the main assist toggle as well.
+      assistToggle.checked = assistMode;
+      localStorage.setItem("snakeAssist", assistMode);
+    });
 
     assistToggle.addEventListener("change", () => {
-        assistMode = assistToggle.checked;
-        localStorage.setItem("snakeAssist", assistMode);
+      assistMode = assistToggle.checked;
+      localStorage.setItem("snakeAssist", assistMode);
     });
     /* --- Global Variables --- */
     let gridSize = 20,
@@ -1511,27 +1524,27 @@
       arrowControlsContainer.style.display = "none";
       finalScoreEl.textContent = `Score: ${Math.floor(score)}`;
       // Update high scores 
-        if (assistMode) {
-          let currentAssist =
-            parseInt(
-              localStorage.getItem("snakeHighScore_" + gameMode + "_assist")
-            ) || 0;
-          if (score > currentAssist) {
-            localStorage.setItem(
-              "snakeHighScore_" + gameMode + "_assist",
-              score
-            );
-            highScores[gameMode + "_assist"] = score;
-          }
-        } else {
-          let currentNormal =
-            parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
-          if (score > currentNormal) {
-            localStorage.setItem("snakeHighScore_" + gameMode, score);
-            highScores[gameMode] = score;
-          }
+      if (assistMode) {
+        let currentAssist =
+          parseInt(
+            localStorage.getItem("snakeHighScore_" + gameMode + "_assist")
+          ) || 0;
+        if (score > currentAssist) {
+          localStorage.setItem(
+            "snakeHighScore_" + gameMode + "_assist",
+            score
+          );
+          highScores[gameMode + "_assist"] = score;
         }
-      
+      } else {
+        let currentNormal =
+          parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+        if (score > currentNormal) {
+          localStorage.setItem("snakeHighScore_" + gameMode, score);
+          highScores[gameMode] = score;
+        }
+      }
+
       let normalHS =
         parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
       let assistHS =
