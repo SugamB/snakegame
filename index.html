@@ -311,20 +311,10 @@
       font-size: 22px;
     }
 
-    .info-icon {
-      background: transparent;
-      border: none;
-      color: var(--accent);
-      font-size: 24px;
-      cursor: pointer;
-    }
-
     /* -- Settings Dropdowns & Toggle (shared with main menu) -- */
     .settings-group {
       margin: 16px 0;
       text-align: left;
-      /* Hidden until a mode is selected */
-      /* display: none; */
     }
 
     .settings-group label {
@@ -562,7 +552,7 @@
   <div id="pause-menu" class="overlay">
     <div class="pause-header">
       <h2>Paused</h2>
-      <button id="info-btn" class="info-icon">?</button>
+      <!-- <button id="info-btn" class="info-icon">?</button> -->
     </div>
     <div class="pause-content">
       <label>
@@ -723,7 +713,6 @@
     // Updated arrow controls placement
     function updateArrowControls() {
       const placement = arrowPlacementSelect.value;
-      console.log("here: ", placement);
       localStorage.setItem("snakeArrowPlacement", placement);
       if (placement === "hidden") {
         arrowControlsContainer.style.display = "none";
@@ -1205,39 +1194,30 @@
 
     /* --- Controls --- */
     // Spacebar & Arrow Keys for controlling/pause/resume
-    document.addEventListener("keydown", (e) => {
-      if (gameState === "running") {
-        if (["ArrowUp", "w"].includes(e.key) && direction !== "down")
-          nextDirection = "up";
-        else if (["ArrowDown", "s"].includes(e.key) && direction !== "up")
-          nextDirection = "down";
-        else if (["ArrowLeft", "a"].includes(e.key) && direction !== "right")
-          nextDirection = "left";
-        else if (["ArrowRight", "d"].includes(e.key) && direction !== "left")
-          nextDirection = "right";
-        else if (e.key === " ") {
-          // Toggle pause/resume with spacebar using pause button functionality
-          pauseBtn.click();
-        }
-      } else if (gameState === "paused" && e.key === " ") {
-        pauseBtn.click();
-      }
-    });
+    function togglePauseResume() {
+      pauseBtn.disabled = true;
+      gameState = gameState === "running" ? "paused" : "running";
+      pauseMenu.style.display = gameState === "paused" ? "block" : "none";
+      pauseBtn.textContent = gameState === "paused" ? "▶️" : "⏸️";
 
-    // Pause Button toggles pause/resume and changes its text
-    pauseBtn.addEventListener("click", () => {
       if (gameState === "running") {
-        gameState = "paused";
-        pauseMenu.style.display = "block";
-        pauseBtn.textContent = "▶️";
-      } else if (gameState === "paused") {
-        gameState = "running";
-        pauseMenu.style.display = "none";
-        pauseBtn.textContent = "⏸️";
         lastTime = performance.now();
         requestAnimationFrame(gameLoop);
       }
+
+      setTimeout(() => pauseBtn.disabled = false, 100);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (gameState === "running" && ["ArrowUp", "w"].includes(e.key) && direction !== "down") nextDirection = "up";
+      else if (gameState === "running" && ["ArrowDown", "s"].includes(e.key) && direction !== "up") nextDirection = "down";
+      else if (gameState === "running" && ["ArrowLeft", "a"].includes(e.key) && direction !== "right") nextDirection = "left";
+      else if (gameState === "running" && ["ArrowRight", "d"].includes(e.key) && direction !== "left") nextDirection = "right";
+
+      if ([" ", "Escape"].includes(e.key)) togglePauseResume();
     });
+
+    pauseBtn.addEventListener("click", togglePauseResume);
 
     // Circular arrow controls
     document.querySelectorAll(".arrow-btn").forEach((btn) => {
@@ -1303,14 +1283,12 @@
       difficultySelect.value = diff;
       localStorage.setItem("snakeDifficulty", diff);
       let arrowOpt = localStorage.getItem("snakeArrowPlacement") || "right";
-      console.log("arrowOpt", arrowOpt);
       arrowPlacementSelect.innerHTML =
         '<option value="left">Left</option>' +
         '<option value="middle">Middle</option>' +
         '<option value="right">Right</option>' +
         '<option value="hidden">Hidden</option>';
       arrowPlacementSelect.value = arrowOpt;
-      console.log("arrowPlacementSelect.value", arrowPlacementSelect.value);
       pauseArrowPlacement.innerHTML = arrowPlacementSelect.innerHTML;
       pauseArrowPlacement.value = arrowOpt;
     }
