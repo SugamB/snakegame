@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path fill='%2339C4A9' d='M32 0 C14 0 0 14 0 32 C0 50 14 64 32 64 C50 64 64 50 64 32 C64 14 50 0 32 0 Z M32 54 C18 54 6 42 6 32 C6 22 18 10 32 10 C46 10 58 22 58 32 C58 42 46 54 32 54 Z'/></svg>" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Snake Game</title>
+  <style>
+    /* -- Color Palette & Basic Styling -- */
+    :root {
+      --primary: #39c4a9;
+      --primary-dark: #2a9d8f;
+      --secondary: #ff5e78;
+      --accent: #ffbe0b;
+      --background: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --text: #f8fafc;
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+    html, body {
+      height: 100%; overflow: hidden; background: var(--background); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px;
+      background: linear-gradient(135deg, var(--background) 0%, #172554 100%);
+    }
+    /* -- Shake Animation for Game Board on Collision -- */
+    @keyframes shake { 0% { transform: translate(0, 0); } 25% { transform: translate(2px, -2px); } 50% { transform: translate(-2px, 2px); } 75% { transform: translate(2px, 2px); } 100% { transform: translate(0, 0); } }
+    .shake { animation: shake 0.3s; }
+    /* -- Header with Logo, Score, and Pause/Home Button -- */
+    .game-header {
+      display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 500px;
+      /* Hidden during main menu */
+      display: none;
+    }
+    .logo { font-size: 24px; font-weight: 800; color: var(--primary); text-shadow: 0 2px 4px rgba(0,0,0,0.3); letter-spacing: 1px; }
+    #score {
+      font-size: 20px; font-weight: 600; background: var(--surface); padding: 8px 16px; border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 8px;
+    }
+    #score::before { content: "🍎"; font-size: 18px; }
+    /* NEW: During game over, the pause-btn becomes a Home button. */
+    #pause-btn {
+      background: var(--surface); border: none; color: var(--text); padding: 8px 16px; font-size: 16px;
+      border-radius: 12px; cursor: pointer; transition: transform 0.2s, background-color 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    #pause-btn:active { transform: scale(0.95); background: #e04e66; }
+    /* -- For overlay Home buttons -- */
+    #pause-home-btn { background: var(--secondary); }
+    #start-btn { background: var(--primary-dark); text-align: center; }
+    /* -- Game Info (mode display & timer) -- */
+    #game-info {
+      width: 100%; max-width: 500px; display: none; /* hidden in main menu */
+      justify-content: space-between; align-items: center;
+    }
+    #game-mode-display { font-size: 16px; font-weight: 600; background: var(--surface-light); padding: 6px 12px; border-radius: 20px; }
+    #timer-container { flex: 1; margin-left: 16px; }
+    .timer-bar { height: 6px; background: var(--surface-light); border-radius: 3px; overflow: hidden; }
+    .timer-fill { height: 100%; width: 100%; background: var(--accent); transform-origin: left; }
+    /* -- Game Container & Canvas -- */
+    #game-wrapper { position: relative; width: 100%; max-width: 500px; display: none; }
+    #game-container {
+      width: 100%; max-height: 60vh; aspect-ratio: 1; background: var(--surface); border-radius: 10px;
+      overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); position: relative;
+    }
+    #game-canvas { width: 100%; height: 100%; }
+    /* -- Circular Arrow Controls (visible during gameplay & pause) -- */
+    #arrow-controls-container { display: none; position: absolute; width: 180px; height: 180px; margin-top: 50px; }
+    #arrow-controls { position: relative; width: 100%; height: 100%; }
+    .arrow-btn {
+      position: absolute; width: 60px; height: 60px; background: var(--primary); border: none; color: var(--text);
+      font-size: 24px; border-radius: 20px; cursor: pointer; transition: transform 0.2s, background-color 0.2s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    #arrow-up { top: 0; left: 50%; transform: translate(-50%, 0); }
+    #arrow-down { bottom: 0; left: 50%; transform: translate(-50%, 0); }
+    #arrow-left { left: 0; top: 50%; transform: translate(0, -50%); }
+    #arrow-right { right: 0; top: 50%; transform: translate(0, -50%); }
+    /* -- Overlays (Start, Pause, Game Over) -- */
+    .overlay {
+      position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+      background: var(--surface); padding: 24px; border-radius: 24px; text-align: center;
+      width: 90%; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); display: none;
+    }
+    .overlay h2 { margin-bottom: 16px; color: var(--primary); font-size: 28px; }
+    .overlay p { margin-bottom: 12px; color: var(--text); }
+    .overlay button {
+      background: var(--primary); border: none; color: var(--text); padding: 12px 24px; font-size: 16px;
+      margin: 8px; border-radius: 12px; cursor: pointer; transition: transform 0.2s, background-color 0.2s; font-weight: 600;
+    }
+    .overlay button:active { transform: scale(0.95); }
+    /* NEW: Small X button in Game Over overlay. */
+    .close-overlay {
+      position: absolute; top: 8px; right: 8px; background: transparent; border: none; color: var(--text); font-size: 20px; cursor: pointer;
+    }
+    /* --- Pause Menu --- */
+    #pause-menu .pause-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    #pause-menu .pause-header h2 { font-size: 22px; }
+    /* -- Settings Dropdowns & Toggle (shared with main menu) -- */
+    .settings-group { margin: 16px 0; text-align: left; }
+    .settings-group label { display: flex; align-items: center; margin: 12px 0; font-size: 16px; }
+    /* --- Dropdowns & Toggles (common) --- */
+    #pause-menu select,
+    #start-menu select,
+    #start-menu input[type="checkbox"],
+    #pause-menu input[type="checkbox"] {
+      margin-left: 8px; padding: 6px 10px; border-radius: 8px; background: var(--surface-light);
+      border: 1px solid rgba(255,255,255,0.1); color: var(--text);
+    }
+    .toggle {
+      position: relative; display: inline-block; width: 50px; height: 26px; margin-left: 8px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--surface-light); transition: 0.4s; border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px;
+      background-color: var(--text); transition: 0.4s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(24px); }
+    /* NEW: Style for disabled toggle */
+    .toggle input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+    /* -- Game Modes (in Start Menu) -- */
+    .game-modes {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;
+    }
+    .mode-card {
+      background: var(--surface-light); border-radius: 12px; padding: 10px; text-align: center;
+      cursor: pointer; flex: 1 1 40%; border: 2px solid transparent; transition: transform 0.2s, border-color 0.2s;
+    }
+    .mode-card.active { border-color: var(--primary); background: var(--surface); }
+    .mode-card:hover { transform: scale(1.02); }
+    .mode-card h3 { font-size: 16px; margin-bottom: 5px; }
+    .mode-card p { font-size: 12px; }
+    .mode-icon { font-size: 24px; margin-bottom: 5px; }
+    @media (max-height: 700px) {
+      body { padding: 8px; gap: 8px; }
+      #game-container { max-height: 50vh; }
+      .arrow-btn { width: 50px; height: 50px; font-size: 20px; }
+    }
+    /* -- Animations (e.g. collision shake) -- */
+    @keyframes collisionShake {
+      0% { transform: translate(0, 0); }
+      20% { transform: translate(-4px, 4px); }
+      40% { transform: translate(-4px, -4px); }
+      60% { transform: translate(4px, 4px); }
+      80% { transform: translate(4px, -4px); }
+      100% { transform: translate(0, 0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header: Logo, Score, and Pause/Home Button -->
+  <div class="game-header">
+    <div class="logo">Snake Game</div>
+    <div id="score">0</div>
+    <button id="pause-btn">⏸️</button>
+  </div>
+  <!-- Game Info (hidden in main menu) -->
+  <div id="game-info">
+    <div id="game-mode-display"></div>
+    <div id="timer-container">
+      <div class="timer-bar">
+        <div class="timer-fill"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Game Container -->
+  <div id="game-wrapper">
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+    </div>
+    <!-- Circular Arrow Controls -->
+    <div id="arrow-controls-container">
+      <div id="arrow-controls">
+        <button id="arrow-up" class="arrow-btn" data-dir="up">↑</button>
+        <button id="arrow-down" class="arrow-btn" data-dir="down">↓</button>
+        <button id="arrow-left" class="arrow-btn" data-dir="left">←</button>
+        <button id="arrow-right" class="arrow-btn" data-dir="right">→</button>
+      </div>
+    </div>
+  </div>
+  <!-- Start Menu (Main Menu) -->
+  <div id="start-menu" class="overlay" style="position: fixed; display: block">
+    <h2>Snake Game</h2>
+    <!-- Mode Cards with no default selection -->
+    <div class="game-modes">
+      <div class="mode-card" data-mode="classic">
+        <div class="mode-icon">🐍</div>
+        <h3>Classic</h3>
+        <p>Standard snake game</p>
+      </div>
+      <div class="mode-card" data-mode="timeattack">
+        <div class="mode-icon">⏱️</div>
+        <h3>Time Attack</h3>
+        <p>Race against time</p>
+      </div>
+      <div class="mode-card" data-mode="maze">
+        <div class="mode-icon">🧩</div>
+        <h3>Maze</h3>
+        <p>Obstacles change over time</p>
+      </div>
+      <div class="mode-card" data-mode="infinite">
+        <div class="mode-icon">♾️</div>
+        <h3>Infinite</h3>
+        <p>Endless challenge with leveling</p>
+      </div>
+    </div>
+    <!-- These elements are hidden until a mode is selected -->
+    <div id="start-menu-content" style="display: none">
+      <p id="high-score-start" style="display: none">Highest Score:</p>
+      <div class="settings-group">
+        <label>
+          Wall Pass-Through
+          <label class="toggle">
+            <input type="checkbox" id="pass-through-toggle" checked />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label>
+          Difficulty:
+          <select id="difficulty-select"></select>
+        </label>
+        <label>
+          Arrow Placement:
+          <select id="arrow-placement"></select>
+        </label>
+        <!-- NEW: Assist Toggle -->
+        <label>
+          Assist:
+          <label class="toggle">
+            <input type="checkbox" id="assist-toggle" />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <!-- NEW: Auto Play Toggle -->
+        <label>
+          Auto Play:
+          <label class="toggle">
+            <input type="checkbox" id="autoplay-toggle" />
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+      <button id="start-btn">Start Game</button>
+    </div>
+  </div>
+  <!-- Pause Menu -->
+  <div id="pause-menu" class="overlay">
+    <div class="pause-header">
+      <h2>Paused</h2>
+    </div>
+    <div class="pause-content">
+      <label>
+        Arrow Placement:
+        <select id="pause-arrow-placement"></select>
+      </label>
+      <p id="pause-highscore"></p>
+      <div class="pause-buttons">
+        <button id="pause-home-btn">🏠 Home</button>
+      </div>
+    </div>
+  </div>
+  <!-- Game Over Menu -->
+  <div id="game-over" class="overlay">
+    <!-- NEW: Small X button to close Game Over overlay -->
+    <button class="close-overlay" id="close-gameover">✕</button>
+    <h2>Game Over!</h2>
+    <p id="final-score"></p>
+    <p id="high-score-display"></p>
+    <button id="restart-btn">Play Again</button>
+    <button id="over-home-btn">Home</button>
+  </div>
+  <script>
+    /* --- Element References --- */
+    const canvas = document.getElementById("game-canvas"),
+      ctx = canvas.getContext("2d"),
+      scoreEl = document.getElementById("score"),
+      pauseBtn = document.getElementById("pause-btn"),
+      startMenu = document.getElementById("start-menu"),
+      pauseMenu = document.getElementById("pause-menu"),
+      gameOverMenu = document.getElementById("game-over"),
+      startBtn = document.getElementById("start-btn"),
+      pauseHomeBtn = document.getElementById("pause-home-btn"),
+      restartBtn = document.getElementById("restart-btn"),
+      overHomeBtn = document.getElementById("over-home-btn"),
+      highScoreStart = document.getElementById("high-score-start"),
+      finalScoreEl = document.getElementById("final-score"),
+      highScoreDisplay = document.getElementById("high-score-display"),
+      passThroughToggle = document.getElementById("pass-through-toggle"),
+      difficultySelect = document.getElementById("difficulty-select"),
+      arrowPlacementSelect = document.getElementById("arrow-placement"),
+      pauseArrowPlacement = document.getElementById("pause-arrow-placement"),
+      gameModeDisplay = document.getElementById("game-mode-display"),
+      timerFill = document.querySelector(".timer-fill"),
+      gameInfo = document.getElementById("game-info"),
+      arrowControlsContainer = document.getElementById("arrow-controls-container"),
+      gameWrapper = document.getElementById("game-wrapper"),
+      pauseHighScoreEl = document.getElementById("pause-highscore"),
+      closeGameOverBtn = document.getElementById("close-gameover");
+
+    // NEW: Assist and Auto Play toggles and load from localStorage.
+    const assistToggle = document.getElementById("assist-toggle");
+    const autoPlayToggle = document.getElementById("autoplay-toggle");
+    let assistMode = (localStorage.getItem("snakeAssist") === "true");
+    let autoPlay = (localStorage.getItem("snakeAutoPlay") === "true");
+    assistToggle.checked = assistMode;
+    autoPlayToggle.checked = autoPlay;
+    if(autoPlay){
+      assistToggle.checked = true;
+      assistToggle.disabled = true;
+      assistMode = true;
+    }
+    autoPlayToggle.addEventListener("change", () => {
+      autoPlay = autoPlayToggle.checked;
+      localStorage.setItem("snakeAutoPlay", autoPlay);
+      if (autoPlay) {
+        assistToggle.checked = true;
+        assistToggle.disabled = true;
+        assistMode = true;
+        localStorage.setItem("snakeAssist", assistMode);
+      } else {
+        assistToggle.disabled = false;
+        assistMode = assistToggle.checked;
+        localStorage.setItem("snakeAssist", assistMode);
+      }
+    });
+    assistToggle.addEventListener("change", () => {
+      if (!autoPlay) { assistMode = assistToggle.checked; localStorage.setItem("snakeAssist", assistMode); }
+    });
+
+    // NEW: Variable to allow user input to override auto-play.
+    let lastUserInputTime = 0;
+
+    /* --- Global Variables --- */
+    let gridSize = 20, cellSize,
+      snake = [],
+      food = {},
+      direction = "right",
+      nextDirection = "right",
+      score = 0,
+      // High scores: separate normal and assisted scores per mode.
+      highScores = { classic: 0, timeattack: 0, maze: 0, infinite: 0,
+                     "classic_assist": 0, "timeattack_assist": 0, "maze_assist": 0, "infinite_assist": 0 },
+      gameState = "start",
+      accumulator = 0,
+      lastTime = performance.now(),
+      collisionAnimationTime = 0,
+      collisionAnimationDuration = 300,
+      gameMode = "",
+      timeAttackTimer = 0,
+      timeAttackDuration = 30000,
+      timeAttackIncrement = 5000,
+      obstacles = [],
+      gameLevel = 1,
+      infiniteTimer = 0,
+      specialFoodTimer = 0,
+      specialFoodDuration = 5000,
+      mazeTimer = 0,
+      mazeInterval = 10000,
+      particles = [];
+
+    // For assist pathfinding.
+    let assistPath = null;
+
+    // Scoring multipliers & base rewards.
+    const difficultyMultipliers = { easy: 1, normal: 1.5, hard: 2 },
+      modeMultipliers = { classic: 1, timeattack: 1.2, maze: 1.1, infinite: 1.3 },
+      baseRewards = { default: 10, high: 20, special: 50, time: 5 };
+
+    // Colors.
+    const colors = {
+      snake: { head: "#FFD700", body: "#FF8C00", glow: "rgba(255,165,0,0.4)" },
+      food: { default: "🍏", high: "🍕", special: "🐀", time: "⏳" },
+      obstacle: { color: "#708090", border: "#2F4F4F" },
+      star: "#FFFF00",
+    };
+
+    // Game speed settings.
+    let initialGameSpeed, minGameSpeed, speedIncrement, gameSpeed, specialFoodReward;
+    function setDifficultySettings() {
+      const diff = difficultySelect.value;
+      if (diff === "easy") { initialGameSpeed = 300; minGameSpeed = 200; baseRewards.default = 10; baseRewards.high = 20; }
+      else if (diff === "normal") { initialGameSpeed = 250; minGameSpeed = 150; baseRewards.default = 15; baseRewards.high = 30; }
+      else if (diff === "hard") { initialGameSpeed = 200; minGameSpeed = 100; baseRewards.default = 20; baseRewards.high = 40; }
+      specialFoodReward = baseRewards.special * (difficultyMultipliers[diff] || 1);
+      gameSpeed = initialGameSpeed;
+      speedIncrement = 10;
+    }
+
+    function initCanvas() {
+      const gameContainer = document.getElementById("game-container");
+      let containerWidth = gameContainer.clientWidth;
+      let containerHeight = gameContainer.clientHeight;
+      let size = Math.min(containerWidth, containerHeight);
+      cellSize = Math.floor(size / gridSize);
+      canvas.width = cellSize * gridSize;
+      canvas.height = cellSize * gridSize;
+    }
+
+    // Updated arrow controls placement.
+    function updateArrowControls() {
+      const placement = arrowPlacementSelect.value;
+      localStorage.setItem("snakeArrowPlacement", placement);
+      if (placement === "hidden") { arrowControlsContainer.style.display = "none"; }
+      else {
+        arrowControlsContainer.style.display = "block"; arrowControlsContainer.style.position = "absolute";
+        if (placement === "left") { arrowControlsContainer.style.left = "10px"; arrowControlsContainer.style.right = ""; arrowControlsContainer.style.transform = ""; }
+        else if (placement === "middle") { arrowControlsContainer.style.left = "50%"; arrowControlsContainer.style.transform = "translateX(-50%)"; arrowControlsContainer.style.right = ""; }
+        else if (placement === "right") { arrowControlsContainer.style.right = "10px"; arrowControlsContainer.style.left = ""; arrowControlsContainer.style.transform = ""; }
+      }
+      pauseArrowPlacement.value = placement;
+    }
+
+    // NEW: Maze mode obstacle generator – ensure at least a minimum number of cells.
+    function generateObstacles() {
+      obstacles = [];
+      if (gameMode === "maze") {
+        // Minimum obstacle cells based on difficulty.
+        const minCells = { easy: 5, normal: 10, hard: 15 }[difficultySelect.value] || 5;
+        // First, generate a few long obstacles.
+        let numLong = Math.floor(minCells / 4); // each long obstacle might cover ~4 cells on average.
+        for (let i = 0; i < numLong; i++) {
+          const len = 3 + Math.floor(Math.random() * 4),
+                horizontal = Math.random() > 0.5;
+          let startX, startY;
+          if (horizontal) {
+            startX = 1 + Math.floor(Math.random() * (gridSize - len - 2));
+            startY = 1 + Math.floor(Math.random() * (gridSize - 3));
+            for (let j = 0; j < len; j++) obstacles.push({ x: startX + j, y: startY });
+          } else {
+            startX = 1 + Math.floor(Math.random() * (gridSize - 3));
+            startY = 1 + Math.floor(Math.random() * (gridSize - len - 2));
+            for (let j = 0; j < len; j++) obstacles.push({ x: startX, y: startY + j });
+          }
+        }
+        // Then, if total cells < required, add two-celled obstacles.
+        while (obstacles.length < minCells) {
+          let horizontal = Math.random() > 0.5;
+          let startX = Math.floor(Math.random() * (gridSize - (horizontal ? 1 : 0)));
+          let startY = Math.floor(Math.random() * (gridSize - (horizontal ? 0 : 1)));
+          // Check if these two cells are free.
+          if (!snake.some(seg => seg.x === startX && seg.y === startY) &&
+              !obstacles.some(obs => obs.x === startX && obs.y === startY)) {
+            let second = { x: horizontal ? startX + 1 : startX, y: horizontal ? startY : startY + 1 };
+            if (!snake.some(seg => seg.x === second.x && seg.y === second.y) &&
+                !obstacles.some(obs => obs.x === second.x && obs.y === second.y)) {
+              obstacles.push({ x: startX, y: startY });
+              obstacles.push(second);
+            }
+          }
+        }
+        obstacles = obstacles.filter(obs => !snake.some(seg => seg.x === obs.x && seg.y === obs.y));
+      }
+    }
+
+    // NEW: When clicking Home, clear any selected mode tile and hide the settings.
+    function goToMainMenu() {
+      gameWrapper.style.display = "none";
+      pauseMenu.style.display = "none";
+      gameOverMenu.style.display = "none";
+      document.querySelector(".game-header").style.display = "none";
+      gameInfo.style.display = "none";
+      // Clear mode selection.
+      document.querySelectorAll(".mode-card").forEach(b => b.classList.remove("active"));
+      document.getElementById("start-menu-content").style.display = "none";
+      startMenu.style.display = "block";
+      updateMainMenuHighScore();
+    }
+
+    function updateMainMenuHighScore() {
+      if (!gameMode) return;
+      let normalHS = parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+      let assistHS = parseInt(localStorage.getItem("snakeHighScore_" + gameMode + "_assist")) || 0;
+      highScoreStart.textContent = `Highest Score: ${normalHS}` + (assistHS ? ` | Assisted: ${assistHS}` : "");
+      highScoreStart.style.display = "block";
+    }
+
+    function initGame() {
+      setDifficultySettings();
+      updateArrowControls();
+      gameWrapper.style.display = "block";
+      setTimeout(initCanvas, 0);
+      // Show game elements and hide main menu.
+      gameInfo.style.display = "flex";
+      document.querySelector(".game-header").style.display = "flex";
+      gameWrapper.style.display = "block";
+      startMenu.style.display = "none";
+      pauseMenu.style.display = "none";
+      gameOverMenu.style.display = "none";
+      arrowControlsContainer.style.display = arrowPlacementSelect.value === "hidden" ? "none" : "block";
+      snake = [ { x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 } ];
+      gameLevel = 1; infiniteTimer = 0; mazeTimer = 0;
+      if (gameMode === "timeattack") { timeAttackTimer = timeAttackDuration; document.querySelector(".timer-bar").style.display = "block"; }
+      else { document.querySelector(".timer-bar").style.display = "none"; }
+      if (gameMode === "maze") generateObstacles(); else obstacles = [];
+      placeFood();
+      score = 0; updateScore();
+      direction = nextDirection = "right";
+      accumulator = 0; gameState = "running";
+      lastTime = performance.now(); collisionAnimationTime = 0; specialFoodTimer = 0;
+      particles = [];
+      gameModeDisplay.textContent = gameMode.charAt(0).toUpperCase() + gameMode.slice(1) +
+        (gameMode === "infinite" ? " - Level " + gameLevel : "");
+      requestAnimationFrame(gameLoop);
+    }
+
+    // NEW: Added a safeguard counter in placeFood() to avoid long delays.
+    function placeFood() {
+      let attempts = 0, maxAttempts = 100;
+      let rand = Math.random(), type;
+      if (rand < 0.05) { type = "special"; specialFoodTimer = specialFoodDuration; }
+      else if (rand < 0.15) type = "high";
+      else if (gameMode === "timeattack" && rand < 0.45) type = "time";
+      else type = "default";
+      let newFood;
+      do {
+        newFood = { x: Math.floor(Math.random() * gridSize), y: Math.floor(Math.random() * gridSize), type };
+        attempts++;
+        if (attempts > maxAttempts) break;
+      } while (!isPositionValid(newFood.x, newFood.y));
+      food = newFood;
+    }
+
+    function isPositionValid(x, y) {
+      if (snake.some((seg) => seg.x === x && seg.y === y)) return false;
+      if ((gameMode === "maze" || gameMode === "infinite") &&
+          obstacles.some((obs) => obs.x === x && obs.y === y))
+        return false;
+      return true;
+    }
+
+    function updateScore() { scoreEl.textContent = Math.floor(score); }
+
+    function getScoreIncrement(foodType) {
+      const diffMult = difficultyMultipliers[difficultySelect.value] || 1;
+      const modeMult = modeMultipliers[gameMode] || 1;
+      if (foodType === "default") return baseRewards.default * diffMult * modeMult;
+      else if (foodType === "high") return baseRewards.high * diffMult * modeMult;
+      else if (foodType === "special") return specialFoodReward * diffMult * modeMult;
+      else if (foodType === "time") return baseRewards.time * diffMult * modeMult;
+      return 0;
+    }
+
+    function spawnParticles(x, y) {
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: x * cellSize + cellSize / 2,
+          y: y * cellSize + cellSize / 2,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 1000, maxLife: 1000,
+        });
+      }
+    }
+
+    // Allow the tail cell to be considered walkable.
+    function isWalkable(pos) {
+      let tail = snake[snake.length - 1];
+      for (let seg of snake) {
+        if (pos.x === seg.x && pos.y === seg.y) {
+          if (pos.x === tail.x && pos.y === tail.y) continue;
+          return false;
+        }
+      }
+      if ((gameMode === "maze" || gameMode === "infinite") &&
+          obstacles.some((obs) => obs.x === pos.x && obs.y === pos.y))
+        return false;
+      return true;
+    }
+
+    function updateSnake() {
+      if (["left", "right", "up", "down"].includes(nextDirection) &&
+          !((direction === "left" && nextDirection === "right") ||
+            (direction === "right" && nextDirection === "left") ||
+            (direction === "up" && nextDirection === "down") ||
+            (direction === "down" && nextDirection === "up")))
+        { direction = nextDirection; }
+      let head = { ...snake[0] };
+      if (direction === "up") head.y--;
+      if (direction === "down") head.y++;
+      if (direction === "left") head.x--;
+      if (direction === "right") head.x++;
+      if (!passThroughToggle.checked) {
+        if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) { gameState = "collision"; collisionAnimationTime = 0; return; }
+      } else {
+        if (head.x < 0) head.x = gridSize - 1;
+        if (head.x >= gridSize) head.x = 0;
+        if (head.y < 0) head.y = gridSize - 1;
+        if (head.y >= gridSize) head.y = 0;
+      }
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score += Math.floor(getScoreIncrement(food.type)); updateScore();
+        spawnParticles(food.x, food.y);
+        // NEW: Increase speed after each food.
+        gameSpeed = Math.max(gameSpeed - speedIncrement, minGameSpeed);
+        // NEW: In infinite mode, level increases with each food.
+        if (gameMode === "infinite") { gameLevel++; gameModeDisplay.textContent = `Infinite - Level ${gameLevel}`; }
+        placeFood();
+      } else { snake.pop(); }
+    }
+
+    function checkCollisions() {
+      const head = snake[0];
+      for (let i = 1; i < snake.length; i++) {
+        if (snake[i].x === head.x && snake[i].y === head.y) { gameState = "collision"; collisionAnimationTime = 0; break; }
+      }
+      if ((gameMode === "maze" || gameMode === "infinite") &&
+          obstacles.some((obs) => obs.x === head.x && obs.y === head.y)) { gameState = "collision"; collisionAnimationTime = 0; }
+    }
+
+    function updateParticles(deltaTime) {
+      particles.forEach((p) => { p.x += p.vx; p.y += p.vy; p.life -= deltaTime; });
+      particles = particles.filter((p) => p.life > 0);
+    }
+
+    function drawSnakeSegment(seg, i) {
+      const progress = i / (snake.length - 1);
+      const size = cellSize * (0.9 - progress * 0.1);
+      const offset = (cellSize - size) / 2;
+      ctx.save();
+      ctx.translate(seg.x * cellSize + offset, seg.y * cellSize + offset);
+      if (i === 0) { ctx.fillStyle = colors.snake.head; ctx.shadowColor = colors.snake.glow; ctx.shadowBlur = 15; }
+      else ctx.fillStyle = colors.snake.body;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, size * 0.3);
+      ctx.fill();
+      ctx.restore();
+      if (i === 0 && gameState !== "collision") {
+        let centerX = seg.x * cellSize + cellSize / 2,
+            centerY = seg.y * cellSize + cellSize / 2,
+            eyeSize = cellSize * 0.1, eyeOffset = cellSize * 0.2,
+            leftEye, rightEye;
+        switch (direction) {
+          case "up":
+            leftEye = { x: centerX - eyeOffset, y: centerY - eyeOffset };
+            rightEye = { x: centerX + eyeOffset, y: centerY - eyeOffset }; break;
+          case "down":
+            leftEye = { x: centerX - eyeOffset, y: centerY + eyeOffset };
+            rightEye = { x: centerX + eyeOffset, y: centerY + eyeOffset }; break;
+          case "left":
+            leftEye = { x: centerX - eyeOffset, y: centerY - eyeOffset };
+            rightEye = { x: centerX - eyeOffset, y: centerY + eyeOffset }; break;
+          case "right":
+          default:
+            leftEye = { x: centerX + eyeOffset, y: centerY - eyeOffset };
+            rightEye = { x: centerX + eyeOffset, y: centerY + eyeOffset }; break;
+        }
+        ctx.fillStyle = "black"; ctx.beginPath();
+        ctx.arc(leftEye.x, leftEye.y, eyeSize, 0, Math.PI * 2);
+        ctx.arc(rightEye.x, rightEye.y, eyeSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawFood() {
+      const { x, y, type } = food;
+      ctx.save();
+      ctx.translate(x * cellSize, y * cellSize);
+      ctx.clearRect(0, 0, cellSize, cellSize);
+      ctx.font = `${cellSize * 0.8}px sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (type === "default") { ctx.fillText("🍏", cellSize / 2, cellSize / 2); }
+      else if (type === "high") { ctx.fillText("🍕", cellSize / 2, cellSize / 2); }
+      else if (type === "special") {
+        let alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
+        ctx.fillStyle = `rgba(138,43,226,${alpha})`;
+        ctx.fillText("🐀", cellSize / 2, cellSize / 2);
+      } else if (type === "time") { ctx.fillText("⏳", cellSize / 2, cellSize / 2); }
+      ctx.restore();
+    }
+
+    function drawObstacles() {
+      obstacles.forEach((obs) => {
+        ctx.fillStyle = colors.obstacle.color; ctx.strokeStyle = colors.obstacle.border;
+        ctx.lineWidth = 2; ctx.beginPath();
+        ctx.roundRect(obs.x * cellSize, obs.y * cellSize, cellSize, cellSize, cellSize * 0.2);
+        ctx.fill(); ctx.stroke();
+      });
+    }
+
+    function drawSpinningStar(x, y, size, angle) {
+      ctx.save();
+      ctx.translate(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
+      ctx.rotate(angle);
+      ctx.fillStyle = colors.star; ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        ctx.lineTo(0, -size);
+        ctx.rotate(Math.PI / 5);
+        ctx.lineTo(0, -size / 2);
+        ctx.rotate(Math.PI / 5);
+      }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+
+    // NEW: Draw an arrow at (x,y) with a given angle.
+    function drawArrow(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+      ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(5, 0); ctx.lineTo(0, -3); ctx.lineTo(0, 3); ctx.closePath();
+      ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.fill();
+      ctx.restore();
+    }
+
+    // NEW: Draw assist path as a series of arrows.
+    function drawAssistPath(path) {
+      if (!path || path.length < 2) return;
+      for (let i = 0; i < path.length - 1; i++) {
+        let current = path[i];
+        let next = path[i + 1];
+        let startX = current.x * cellSize + cellSize / 2;
+        let startY = current.y * cellSize + cellSize / 2;
+        let endX = next.x * cellSize + cellSize / 2;
+        let endY = next.y * cellSize + cellSize / 2;
+        let angle = Math.atan2(endY - startY, endX - startX);
+        drawArrow(startX, startY, angle);
+      }
+    }
+
+    // NEW: A* Pathfinding functions for assist/auto-play.
+    function findPath(start, end) {
+      let openSet = [];
+      let cameFrom = {};
+      let gScore = {};
+      let fScore = {};
+      function hash(pos) { return pos.x + "," + pos.y; }
+      openSet.push(start);
+      gScore[hash(start)] = 0;
+      fScore[hash(start)] = heuristic(start, end);
+      while (openSet.length > 0) {
+        let current = openSet.reduce((a, b) => (fScore[hash(a)] < fScore[hash(b)] ? a : b));
+        if (current.x === end.x && current.y === end.y)
+          return reconstructPath(cameFrom, current);
+        openSet = openSet.filter(n => hash(n) !== hash(current));
+        for (let neighbor of getNeighbors(current)) {
+          if (!isWalkable(neighbor)) continue;
+          let tentative_gScore = gScore[hash(current)] + 1;
+          if (tentative_gScore < (gScore[hash(neighbor)] || Infinity)) {
+            cameFrom[hash(neighbor)] = current;
+            gScore[hash(neighbor)] = tentative_gScore;
+            fScore[hash(neighbor)] = tentative_gScore + heuristic(neighbor, end);
+            if (!openSet.some(n => hash(n) === hash(neighbor))) {
+              openSet.push(neighbor);
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function getNeighbors(pos) {
+      let neighbors = [];
+      const directions = [ { x:0, y:-1 }, { x:0, y:1 }, { x:-1, y:0 }, { x:1, y:0 } ];
+      for (let d of directions) {
+        let nx = pos.x + d.x, ny = pos.y + d.y;
+        if (passThroughToggle.checked) {
+          nx = (nx + gridSize) % gridSize;
+          ny = (ny + gridSize) % gridSize;
+          neighbors.push({ x: nx, y: ny });
+        } else {
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize)
+            neighbors.push({ x: nx, y: ny });
+        }
+      }
+      return neighbors;
+    }
+
+    // NEW: Modified heuristic to use wrap-around distance when wall pass-through is enabled.
+    function heuristic(a, b) {
+      if (passThroughToggle.checked) {
+        let dx = Math.min(Math.abs(a.x - b.x), gridSize - Math.abs(a.x - b.x));
+        let dy = Math.min(Math.abs(a.y - b.y), gridSize - Math.abs(a.y - b.y));
+        return dx + dy;
+      } else {
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      }
+    }
+
+    function reconstructPath(cameFrom, current) {
+      let totalPath = [current];
+      function hash(pos) { return pos.x + "," + pos.y; }
+      while (cameFrom[hash(current)]) {
+        current = cameFrom[hash(current)];
+        totalPath.push(current);
+      }
+      return totalPath.reverse();
+    }
+
+    // NEW: Simulation functions for safety checking.
+    function getNeighborsForSimulation(pos) {
+      let neighbors = [];
+      const directions = [ { x:0, y:-1 }, { x:0, y:1 }, { x:-1, y:0 }, { x:1, y:0 } ];
+      for (let d of directions) {
+        let nx = pos.x + d.x, ny = pos.y + d.y;
+        if (passThroughToggle.checked) {
+          nx = (nx + gridSize) % gridSize;
+          ny = (ny + gridSize) % gridSize;
+          neighbors.push({ x: nx, y: ny });
+        } else {
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize)
+            neighbors.push({ x: nx, y: ny });
+        }
+      }
+      return neighbors;
+    }
+    function isWalkableSimulation(pos, snakeArray) {
+      let tail = snakeArray[snakeArray.length - 1];
+      for (let seg of snakeArray) {
+        if (pos.x === seg.x && pos.y === seg.y) {
+          if (pos.x === tail.x && pos.y === tail.y) continue;
+          return false;
+        }
+      }
+      if ((gameMode === "maze" || gameMode === "infinite") &&
+          obstacles.some((obs) => obs.x === pos.x && obs.y === pos.y))
+        return false;
+      return true;
+    }
+    function findPathForSimulation(start, end, snakeArray) {
+      let openSet = [];
+      let cameFrom = {};
+      let gScore = {};
+      let fScore = {};
+      function hash(pos) { return pos.x + "," + pos.y; }
+      openSet.push(start);
+      gScore[hash(start)] = 0;
+      fScore[hash(start)] = heuristic(start, end);
+      while (openSet.length > 0) {
+        let current = openSet.reduce((a, b) => (fScore[hash(a)] < fScore[hash(b)] ? a : b));
+        if (current.x === end.x && current.y === end.y)
+          return reconstructPath(cameFrom, current);
+        openSet = openSet.filter(n => hash(n) !== hash(current));
+        for (let neighbor of getNeighborsForSimulation(current)) {
+          if (!isWalkableSimulation(neighbor, snakeArray)) continue;
+          let tentative_gScore = gScore[hash(current)] + 1;
+          if (tentative_gScore < (gScore[hash(neighbor)] || Infinity)) {
+            cameFrom[hash(neighbor)] = current;
+            gScore[hash(neighbor)] = tentative_gScore;
+            fScore[hash(neighbor)] = tentative_gScore + heuristic(neighbor, end);
+            if (!openSet.some(n => hash(n) === hash(neighbor))) {
+              openSet.push(neighbor);
+            }
+          }
+        }
+      }
+      return null;
+    }
+    // NEW: Improved isPathSafe – also check that intermediate cells aren’t in snake.
+    function isPathSafe(candidatePath) {
+      if (!candidatePath) return false;
+      for (let i = 1; i < candidatePath.length - 1; i++) {
+        if (snake.some(seg => seg.x === candidatePath[i].x && seg.y === candidatePath[i].y)) return false;
+      }
+      let simulatedSnake = snake.map(seg => ({ ...seg }));
+      let simulatedFood = { ...food };
+      for (let i = 1; i < candidatePath.length; i++) {
+        let newHead = candidatePath[i];
+        simulatedSnake.unshift({ ...newHead });
+        if (newHead.x === simulatedFood.x && newHead.y === simulatedFood.y) { simulatedFood = null; }
+        else { simulatedSnake.pop(); }
+      }
+      let tail = simulatedSnake[simulatedSnake.length - 1];
+      let pathToTail = findPathForSimulation(simulatedSnake[0], tail, simulatedSnake);
+      return pathToTail !== null;
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += cellSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+      for (let y = 0; y <= canvas.height; y += cellSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+      ctx.restore();
+    }
+
+    function drawPassThroughIndicator() {
+      if (!passThroughToggle.checked) {
+        ctx.save();
+        ctx.strokeStyle = "#2A9D8F"; ctx.lineWidth = 3;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)"; ctx.shadowBlur = 20; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 4;
+        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+        ctx.restore();
+      }
+    }
+
+    function update(deltaTime) {
+      accumulator += deltaTime;
+      if (gameMode === "maze") { mazeTimer += deltaTime; if (mazeTimer >= mazeInterval) { generateObstacles(); mazeTimer = 0; } }
+      if (accumulator >= gameSpeed && gameState === "running") { accumulator -= gameSpeed; updateSnake(); checkCollisions(); }
+      if (gameState === "collision") {
+        collisionAnimationTime += deltaTime;
+        document.getElementById("game-container").classList.add("shake");
+        if (collisionAnimationTime >= collisionAnimationDuration) endGame();
+      } else { document.getElementById("game-container").classList.remove("shake"); }
+      if (gameMode === "timeattack" && gameState === "running") {
+        timeAttackTimer -= deltaTime;
+        if (timeAttackTimer <= 0) { gameState = "collision"; collisionAnimationTime = 0; }
+        let percent = Math.max(timeAttackTimer / timeAttackDuration, 0);
+        timerFill.style.transform = `scaleX(${percent})`;
+      }
+      // Note: In Infinite mode, level progress is now based on eating food.
+      updateParticles(deltaTime);
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      // NEW: Recalculate assist path (if enabled) and draw it if safe.
+      if (assistMode) {
+        let candidate = findPath(snake[0], food);
+        if (candidate && isPathSafe(candidate)) { assistPath = candidate; } else { assistPath = null; }
+        if (assistPath) drawAssistPath(assistPath);
+      }
+      drawFood();
+      if (gameMode === "maze" || gameMode === "infinite") drawObstacles();
+      snake.forEach((seg, i) => drawSnakeSegment(seg, i));
+      particles.forEach((p) => { ctx.globalAlpha = p.life / p.maxLife; ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; });
+      if (gameState === "collision") { let angle = (collisionAnimationTime / collisionAnimationDuration) * 2 * Math.PI; drawSpinningStar(snake[0].x, snake[0].y, cellSize * 0.5, angle); }
+      drawPassThroughIndicator();
+    }
+
+    function gameLoop(timestamp) {
+      let deltaTime = timestamp - lastTime; lastTime = timestamp;
+      if (gameState === "running" || gameState === "collision") {
+        update(deltaTime);
+        // NEW: If AutoPlay is on and user hasn’t pressed a key in the last 100ms, update nextDirection.
+        if (autoPlay && assistPath && assistPath.length > 1 && (Date.now() - lastUserInputTime > 100)) {
+          let head = snake[0], nextCell = assistPath[1];
+          if (nextCell.x > head.x) nextDirection = "right";
+          else if (nextCell.x < head.x) nextDirection = "left";
+          else if (nextCell.y > head.y) nextDirection = "down";
+          else if (nextCell.y < head.y) nextDirection = "up";
+        }
+        drawGame();
+      }
+      if (gameState !== "ended") requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      gameState = "ended";
+      arrowControlsContainer.style.display = "none";
+      finalScoreEl.textContent = `Score: ${Math.floor(score)}`;
+      // NEW: Update high scores only if AutoPlay is off.
+      if (!autoPlay) {
+        if (assistMode) {
+          let currentAssist = parseInt(localStorage.getItem("snakeHighScore_" + gameMode + "_assist")) || 0;
+          if (score > currentAssist) { localStorage.setItem("snakeHighScore_" + gameMode + "_assist", score); highScores[gameMode + "_assist"] = score; }
+        } else {
+          let currentNormal = parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+          if (score > currentNormal) { localStorage.setItem("snakeHighScore_" + gameMode, score); highScores[gameMode] = score; }
+        }
+      }
+      let normalHS = parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+      let assistHS = parseInt(localStorage.getItem("snakeHighScore_" + gameMode + "_assist")) || 0;
+      highScoreDisplay.textContent = `High Score: ${normalHS}` + (assistHS ? ` | Assisted: ${assistHS}` : "");
+      pauseHighScoreEl.textContent = highScoreDisplay.textContent;
+      gameOverMenu.style.display = "block";
+      // NEW: Replace header pause-btn with a Home button.
+      pauseBtn.textContent = "🏠";
+      pauseBtn.onclick = goToMainMenu;
+    }
+
+    /* --- Controls --- */
+    function togglePauseResume() {
+      // Only allow pause/resume if game is running or paused.
+      if (!(gameState === "running" || gameState === "paused")) return;
+      pauseBtn.disabled = true;
+      gameState = gameState === "running" ? "paused" : "running";
+      pauseMenu.style.display = gameState === "paused" ? "block" : "none";
+      pauseBtn.textContent = gameState === "paused" ? "▶️" : "⏸️";
+      if (gameState === "running") { lastTime = performance.now(); requestAnimationFrame(gameLoop); }
+      setTimeout(() => pauseBtn.disabled = false, 100);
+    }
+    document.addEventListener("keydown", (e) => {
+      // Record user input timestamp.
+      lastUserInputTime = Date.now();
+      if (gameState === "running" && ["ArrowUp", "w"].includes(e.key) && direction !== "down")
+        nextDirection = "up";
+      else if (gameState === "running" && ["ArrowDown", "s"].includes(e.key) && direction !== "up")
+        nextDirection = "down";
+      else if (gameState === "running" && ["ArrowLeft", "a"].includes(e.key) && direction !== "right")
+        nextDirection = "left";
+      else if (gameState === "running" && ["ArrowRight", "d"].includes(e.key) && direction !== "left")
+        nextDirection = "right";
+      // Only toggle pause if game is running or paused.
+      if ((e.key === " " || e.key === "Escape") && (gameState === "running" || gameState === "paused"))
+        togglePauseResume();
+    });
+    pauseBtn.addEventListener("click", togglePauseResume);
+    document.querySelectorAll(".arrow-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const newDir = btn.getAttribute("data-dir");
+        lastUserInputTime = Date.now();
+        if ((direction === "left" && newDir === "right") ||
+            (direction === "right" && newDir === "left") ||
+            (direction === "up" && newDir === "down") ||
+            (direction === "down" && newDir === "up"))
+          return;
+        nextDirection = newDir;
+      });
+    });
+    pauseHomeBtn.addEventListener("click", goToMainMenu);
+    overHomeBtn.addEventListener("click", goToMainMenu);
+    restartBtn.addEventListener("click", initGame);
+    startBtn.addEventListener("click", () => {
+      if (!gameMode) { alert("Please select a game mode before starting!"); return; }
+      startMenu.style.display = "none";
+      initGame();
+    });
+    document.querySelectorAll(".mode-card").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Clear selection and hide start-menu-content.
+        document.querySelectorAll(".mode-card").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        gameMode = btn.getAttribute("data-mode");
+        let storedScore = localStorage.getItem("snakeHighScore_" + gameMode) || 0;
+        let storedAssist = localStorage.getItem("snakeHighScore_" + gameMode + "_assist") || 0;
+        highScores[gameMode] = parseInt(storedScore);
+        highScores[gameMode + "_assist"] = parseInt(storedAssist);
+        highScoreStart.textContent = `Highest Score: ${storedScore}` + (storedAssist ? ` | Assisted: ${storedAssist}` : "");
+        highScoreStart.style.display = "block";
+        // Hide settings after selection.
+        document.getElementById("start-menu-content").style.display = "block";
+      });
+    });
+
+    // NEW: Persist difficulty and arrow placement settings.
+    function initSettings() {
+      let diff = localStorage.getItem("snakeDifficulty") || "normal";
+      difficultySelect.innerHTML =
+        '<option value="easy">Easy</option>' +
+        '<option value="normal">Normal</option>' +
+        '<option value="hard">Hard</option>';
+      difficultySelect.value = diff;
+      localStorage.setItem("snakeDifficulty", diff);
+      let arrowOpt = localStorage.getItem("snakeArrowPlacement") || "right";
+      arrowPlacementSelect.innerHTML =
+        '<option value="left">Left</option>' +
+        '<option value="middle">Middle</option>' +
+        '<option value="right">Right</option>' +
+        '<option value="hidden">Hidden</option>';
+      arrowPlacementSelect.value = arrowOpt;
+      pauseArrowPlacement.innerHTML = arrowPlacementSelect.innerHTML;
+      pauseArrowPlacement.value = arrowOpt;
+    }
+    difficultySelect.addEventListener("change", () => { localStorage.setItem("snakeDifficulty", difficultySelect.value); });
+    arrowPlacementSelect.addEventListener("change", updateArrowControls);
+    pauseArrowPlacement.addEventListener("change", () => { arrowPlacementSelect.value = pauseArrowPlacement.value; updateArrowControls(); });
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+        return this;
+      };
+    }
+    initSettings();
+
+    // NEW: Close Game Over overlay X button behavior.
+    closeGameOverBtn.addEventListener("click", () => {
+      gameOverMenu.style.display = "none";
+      // Replace header pause-btn with Home button.
+      pauseBtn.textContent = "🏠";
+      pauseBtn.onclick = goToMainMenu;
+    });
+  </script>
+</body>
+</html>
