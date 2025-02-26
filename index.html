@@ -10,14 +10,14 @@
   <style>
     /* -- Color Palette & Basic Styling -- */
     :root {
-      --primary: #39C4A9;
-      --primary-dark: #2A9D8F;
-      --secondary: #FF5E78;
-      --accent: #FFBE0B;
-      --background: #0F172A;
-      --surface: #1E293B;
+      --primary: #39c4a9;
+      --primary-dark: #2a9d8f;
+      --secondary: #ff5e78;
+      --accent: #ffbe0b;
+      --background: #0f172a;
+      --surface: #1e293b;
       --surface-light: #334155;
-      --text: #F8FAFC;
+      --text: #f8fafc;
       --shadow: rgba(0, 0, 0, 0.5);
     }
 
@@ -111,7 +111,7 @@
     }
 
     #pause-btn {
-      background: var(--secondary);
+      background: var(--surface);
       border: none;
       color: var(--text);
       padding: 8px 16px;
@@ -124,7 +124,16 @@
 
     #pause-btn:active {
       transform: scale(0.95);
-      background: #E04E66;
+      background: #e04e66;
+    }
+
+    #pause-home-btn {
+      background: var(--secondary);
+    }
+
+    #start-btn {
+      background: var(--primary-dark);
+      text-align: center;
     }
 
     /* -- Game Info (mode display & timer) -- */
@@ -197,7 +206,7 @@
       position: absolute;
       width: 180px;
       height: 180px;
-      margin-top: 16px;
+      margin-top: 50px;
     }
 
     #arrow-controls {
@@ -247,7 +256,7 @@
     /* -- Overlays (Start, Pause, Game Over) -- */
     .overlay {
       position: absolute;
-      top: 50%;
+      top: 40%;
       left: 50%;
       transform: translate(-50%, -50%);
       background: var(--surface);
@@ -290,18 +299,22 @@
       transform: scale(0.95);
     }
 
-    /* -- Pause Menu: Only Home button & Arrow Placement Dropdown -- */
-    #pause-menu {
-      /* Hidden until pause is triggered */
-      display: none;
+    /* --- Pause Menu --- */
+    #pause-menu .pause-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    #pause-menu .pause-header h2 {
+      font-size: 22px;
     }
 
     /* -- Settings Dropdowns & Toggle (shared with main menu) -- */
     .settings-group {
       margin: 16px 0;
       text-align: left;
-      /* Hidden until a mode is selected */
-      display: none;
     }
 
     .settings-group label {
@@ -311,8 +324,11 @@
       font-size: 16px;
     }
 
-    .settings-group select,
-    .settings-group input[type="checkbox"] {
+    /* --- Dropdowns & Toggles (common) --- */
+    #pause-menu select,
+    #start-menu select,
+    #start-menu input[type="checkbox"],
+    #pause-menu input[type="checkbox"] {
       margin-left: 8px;
       padding: 6px 10px;
       border-radius: 8px;
@@ -370,6 +386,7 @@
     /* -- Game Modes (in Start Menu) -- */
     .game-modes {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -380,13 +397,18 @@
       padding: 10px;
       text-align: center;
       cursor: pointer;
-      flex: 1;
+      flex: 1 1 40%;
       border: 2px solid transparent;
+      transition: transform 0.2s, border-color 0.2s;
     }
 
     .mode-card.active {
       border-color: var(--primary);
       background: var(--surface);
+    }
+
+    .mode-card:hover {
+      transform: scale(1.02);
     }
 
     .mode-card h3 {
@@ -454,7 +476,7 @@
   <div class="game-header">
     <div class="logo">Snake Game</div>
     <div id="score">0</div>
-    <button id="pause-btn">Pause</button>
+    <button id="pause-btn">⏸️</button>
   </div>
   <!-- Game Info (hidden in main menu) -->
   <div id="game-info">
@@ -481,7 +503,7 @@
     </div>
   </div>
   <!-- Start Menu (Main Menu) -->
-  <div id="start-menu" class="overlay" style="position: fixed; display: block;">
+  <div id="start-menu" class="overlay" style="position: fixed; display: block">
     <h2>Snake Game</h2>
     <!-- Mode Cards with no default selection -->
     <div class="game-modes">
@@ -507,29 +529,40 @@
       </div>
     </div>
     <!-- These elements are hidden until a mode is selected -->
-    <p id="high-score-start" style="display:none;">Highest Score: 0</p>
-    <div class="settings-group" style="display:none;">
-      <label>Wall Pass-Through
-        <label class="toggle">
-          <input type="checkbox" id="pass-through-toggle" checked />
-          <span class="slider"></span>
+    <div id="start-menu-content" style="display: none;">
+      <p id="high-score-start" style="display: none">Highest Score: 0</p>
+      <div class="settings-group">
+        <label>Wall Pass-Through
+          <label class="toggle">
+            <input type="checkbox" id="pass-through-toggle" checked />
+            <span class="slider"></span>
+          </label>
         </label>
-      </label>
-      <label>Difficulty:
-        <select id="difficulty-select"></select>
-      </label>
-      <label>Arrow Placement:
-        <select id="arrow-placement"></select>
-      </label>
+        <label>Difficulty:
+          <select id="difficulty-select"></select>
+        </label>
+        <label>Arrow Placement:
+          <select id="arrow-placement"></select>
+        </label>
+      </div>
+      <button id="start-btn">Start Game</button>
     </div>
-    <button id="start-btn" style="display:none;">Start Game</button>
   </div>
-  <!-- Pause Menu: Only Arrow Placement Dropdown and Home Button -->
+  <!-- Pause Menu -->
   <div id="pause-menu" class="overlay">
-    <label>Arrow Placement:
-      <select id="pause-arrow-placement"></select>
-    </label>
-    <button id="pause-home-btn">Home</button>
+    <div class="pause-header">
+      <h2>Paused</h2>
+      <!-- <button id="info-btn" class="info-icon">?</button> -->
+    </div>
+    <div class="pause-content">
+      <label>
+        Arrow Placement:
+        <select id="pause-arrow-placement"></select>
+      </label>
+      <div class="pause-buttons">
+        <button id="pause-home-btn">🏠 Home</button>
+      </div>
+    </div>
   </div>
   <!-- Game Over Menu -->
   <div id="game-over" class="overlay">
@@ -562,7 +595,9 @@
       gameModeDisplay = document.getElementById("game-mode-display"),
       timerFill = document.querySelector(".timer-fill"),
       gameInfo = document.getElementById("game-info"),
-      arrowControlsContainer = document.getElementById("arrow-controls-container"),
+      arrowControlsContainer = document.getElementById(
+        "arrow-controls-container"
+      ),
       gameWrapper = document.getElementById("game-wrapper"),
       gameHeader = document.querySelector(".game-header");
 
@@ -578,7 +613,7 @@
         classic: 0,
         timeattack: 0,
         maze: 0,
-        infinite: 0
+        infinite: 0,
       },
       gameState = "start",
       accumulator = 0,
@@ -599,24 +634,43 @@
       particles = [];
     // Scoring multipliers & base rewards (ensuring integer score)
     const difficultyMultipliers = { easy: 1, normal: 1.5, hard: 2 },
-      modeMultipliers = { classic: 1, timeattack: 1.2, maze: 1.1, infinite: 1.3 },
+      modeMultipliers = {
+        classic: 1,
+        timeattack: 1.2,
+        maze: 1.1,
+        infinite: 1.3,
+      },
       baseRewards = { default: 10, high: 20, special: 50, time: 5 };
 
     // Colors
     const colors = {
-      snake: { head: "#FFD700", body: "#FF8C00", glow: "rgba(255,165,0,0.4)" },
+      snake: {
+        head: "#FFD700",
+        body: "#FF8C00",
+        glow: "rgba(255,165,0,0.4)",
+      },
+      // food: {
+      //   default: "#32CD32",
+      //   high: "#FF4500",
+      //   special: "#8A2BE2",
+      //   time: "#00CED1",
+      // },
       food: {
-        default: "#32CD32",
-        high: "#FF4500",
-        special: "#8A2BE2",
-        time: "#00CED1",
+        default: "🍏",
+        high: "🍕",
+        special: "🐀",
+        time: "⏳",
       },
       obstacle: { color: "#708090", border: "#2F4F4F" },
       star: "#FFFF00",
     };
 
     // Game speed settings
-    let initialGameSpeed, minGameSpeed, speedIncrement, gameSpeed, specialFoodReward;
+    let initialGameSpeed,
+      minGameSpeed,
+      speedIncrement,
+      gameSpeed,
+      specialFoodReward;
 
     function setDifficultySettings() {
       const diff = difficultySelect.value;
@@ -636,7 +690,8 @@
         baseRewards.default = 20;
         baseRewards.high = 40;
       }
-      specialFoodReward = baseRewards.special * (difficultyMultipliers[diff] || 1);
+      specialFoodReward =
+        baseRewards.special * (difficultyMultipliers[diff] || 1);
       gameSpeed = initialGameSpeed;
       speedIncrement = 10;
     }
@@ -655,11 +710,9 @@
       canvas.height = cellSize * gridSize;
     }
 
-
     // Updated arrow controls placement
     function updateArrowControls() {
       const placement = arrowPlacementSelect.value;
-      console.log("here: ", placement);
       localStorage.setItem("snakeArrowPlacement", placement);
       if (placement === "hidden") {
         arrowControlsContainer.style.display = "none";
@@ -705,7 +758,9 @@
               obstacles.push({ x: startX, y: startY + j });
           }
         }
-        obstacles = obstacles.filter((obs) => !snake.some((seg) => seg.x === obs.x && seg.y === obs.y));
+        obstacles = obstacles.filter(
+          (obs) => !snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
+        );
       }
     }
 
@@ -723,7 +778,8 @@
       pauseMenu.style.display = "none";
       gameOverMenu.style.display = "none";
       // Show arrows if not hidden
-      arrowControlsContainer.style.display = arrowPlacementSelect.value === "hidden" ? "none" : "block";
+      arrowControlsContainer.style.display =
+        arrowPlacementSelect.value === "hidden" ? "none" : "block";
       // Initialize snake and states
       snake = [
         { x: 5, y: 10 },
@@ -781,7 +837,11 @@
 
     function isPositionValid(x, y) {
       if (snake.some((seg) => seg.x === x && seg.y === y)) return false;
-      if ((gameMode === "maze" || gameMode === "infinite") && obstacles.some((obs) => obs.x === x && obs.y === y)) return false;
+      if (
+        (gameMode === "maze" || gameMode === "infinite") &&
+        obstacles.some((obs) => obs.x === x && obs.y === y)
+      )
+        return false;
       return true;
     }
 
@@ -792,10 +852,14 @@
     function getScoreIncrement(foodType) {
       const diffMult = difficultyMultipliers[difficultySelect.value] || 1;
       const modeMult = modeMultipliers[gameMode] || 1;
-      if (foodType === "default") return baseRewards.default * diffMult * modeMult;
-      else if (foodType === "high") return baseRewards.high * diffMult * modeMult;
-      else if (foodType === "special") return specialFoodReward * diffMult * modeMult;
-      else if (foodType === "time") return baseRewards.time * diffMult * modeMult;
+      if (foodType === "default")
+        return baseRewards.default * diffMult * modeMult;
+      else if (foodType === "high")
+        return baseRewards.high * diffMult * modeMult;
+      else if (foodType === "special")
+        return specialFoodReward * diffMult * modeMult;
+      else if (foodType === "time")
+        return baseRewards.time * diffMult * modeMult;
       return 0;
     }
 
@@ -831,7 +895,12 @@
       if (direction === "left") head.x--;
       if (direction === "right") head.x++;
       if (!passThroughToggle.checked) {
-        if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
+        if (
+          head.x < 0 ||
+          head.x >= gridSize ||
+          head.y < 0 ||
+          head.y >= gridSize
+        ) {
           gameState = "collision";
           collisionAnimationTime = 0;
           return;
@@ -862,7 +931,10 @@
           break;
         }
       }
-      if ((gameMode === "maze" || gameMode === "infinite") && obstacles.some((obs) => obs.x === head.x && obs.y === head.y)) {
+      if (
+        (gameMode === "maze" || gameMode === "infinite") &&
+        obstacles.some((obs) => obs.x === head.x && obs.y === head.y)
+      ) {
         gameState = "collision";
         collisionAnimationTime = 0;
       }
@@ -930,25 +1002,42 @@
       const { x, y, type } = food;
       ctx.save();
       ctx.translate(x * cellSize, y * cellSize);
-      ctx.beginPath();
-      ctx.roundRect(cellSize * 0.1, cellSize * 0.1, cellSize * 0.8, cellSize * 0.8, cellSize * 0.2);
-      if (type === "default") ctx.fillStyle = colors.food.default;
-      else if (type === "high") ctx.fillStyle = colors.food.high;
-      else if (type === "special") {
+
+      // Clear previous drawing
+      ctx.clearRect(0, 0, cellSize, cellSize);
+
+      // Set the font and alignment for drawing the emoji
+      ctx.font = `${cellSize * 0.8}px sans-serif`;  // Adjust font size based on cell size
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Draw the correct emoji based on the food type
+      if (type === "default") {
+        ctx.fillText("🍏", cellSize / 2, cellSize / 2);  // Default food: Apple
+      } else if (type === "high") {
+        ctx.fillText("🍕", cellSize / 2, cellSize / 2);  // High food: Pizza
+      } else if (type === "special") {
         let alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
         ctx.fillStyle = `rgba(138,43,226,${alpha})`;
-      } else if (type === "time") ctx.fillStyle = colors.food.time;
-      ctx.fill();
+        ctx.fillText("🐀", cellSize / 2, cellSize / 2);  // Special food: Rat
+      } else if (type === "time") {
+        ctx.fillText("⏳", cellSize / 2, cellSize / 2);  // Time food: Hourglass
+      }
       ctx.restore();
     }
-
     function drawObstacles() {
       obstacles.forEach((obs) => {
         ctx.fillStyle = colors.obstacle.color;
         ctx.strokeStyle = colors.obstacle.border;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(obs.x * cellSize, obs.y * cellSize, cellSize, cellSize, cellSize * 0.2);
+        ctx.roundRect(
+          obs.x * cellSize,
+          obs.y * cellSize,
+          cellSize,
+          cellSize,
+          cellSize * 0.2
+        );
         ctx.fill();
         ctx.stroke();
       });
@@ -1034,13 +1123,13 @@
         ctx.globalAlpha = 1;
       });
       if (gameState === "collision") {
-        let angle = (collisionAnimationTime / collisionAnimationDuration) * 2 * Math.PI;
+        let angle =
+          (collisionAnimationTime / collisionAnimationDuration) * 2 * Math.PI;
         drawSpinningStar(snake[0].x, snake[0].y, cellSize * 0.5, angle);
       }
       // Draw the wall pass-through indicator
       drawPassThroughIndicator();
     }
-
 
     function drawGrid() {
       ctx.save();
@@ -1066,9 +1155,9 @@
       if (!passThroughToggle.checked) {
         ctx.save();
         // Use the CSS variable for the border color
-        ctx.strokeStyle = '#2A9D8F';
+        ctx.strokeStyle = "#2A9D8F";
         ctx.lineWidth = 3; // Set the border width to 3px as per CSS
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 20;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 4;
@@ -1097,41 +1186,38 @@
         highScores[gameMode] = score;
         localStorage.setItem("snakeHighScore_" + gameMode, score);
       }
-      highScoreDisplay.textContent = `High Score: ${Math.floor(highScores[gameMode] || 0)}`;
+      highScoreDisplay.textContent = `High Score: ${Math.floor(
+        highScores[gameMode] || 0
+      )}`;
       gameOverMenu.style.display = "block";
     }
 
     /* --- Controls --- */
     // Spacebar & Arrow Keys for controlling/pause/resume
-    document.addEventListener("keydown", (e) => {
-      if (gameState === "running") {
-        if (["ArrowUp", "w"].includes(e.key) && direction !== "down") nextDirection = "up";
-        else if (["ArrowDown", "s"].includes(e.key) && direction !== "up") nextDirection = "down";
-        else if (["ArrowLeft", "a"].includes(e.key) && direction !== "right") nextDirection = "left";
-        else if (["ArrowRight", "d"].includes(e.key) && direction !== "left") nextDirection = "right";
-        else if (e.key === " ") {
-          // Toggle pause/resume with spacebar using pause button functionality
-          pauseBtn.click();
-        }
-      } else if (gameState === "paused" && e.key === " ") {
-        pauseBtn.click();
-      }
-    });
+    function togglePauseResume() {
+      pauseBtn.disabled = true;
+      gameState = gameState === "running" ? "paused" : "running";
+      pauseMenu.style.display = gameState === "paused" ? "block" : "none";
+      pauseBtn.textContent = gameState === "paused" ? "▶️" : "⏸️";
 
-    // Pause Button toggles pause/resume and changes its text
-    pauseBtn.addEventListener("click", () => {
       if (gameState === "running") {
-        gameState = "paused";
-        pauseMenu.style.display = "block";
-        pauseBtn.textContent = "Resume";
-      } else if (gameState === "paused") {
-        gameState = "running";
-        pauseMenu.style.display = "none";
-        pauseBtn.textContent = "Pause";
         lastTime = performance.now();
         requestAnimationFrame(gameLoop);
       }
+
+      setTimeout(() => pauseBtn.disabled = false, 100);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (gameState === "running" && ["ArrowUp", "w"].includes(e.key) && direction !== "down") nextDirection = "up";
+      else if (gameState === "running" && ["ArrowDown", "s"].includes(e.key) && direction !== "up") nextDirection = "down";
+      else if (gameState === "running" && ["ArrowLeft", "a"].includes(e.key) && direction !== "right") nextDirection = "left";
+      else if (gameState === "running" && ["ArrowRight", "d"].includes(e.key) && direction !== "left") nextDirection = "right";
+
+      if ([" ", "Escape"].includes(e.key)) togglePauseResume();
     });
+
+    pauseBtn.addEventListener("click", togglePauseResume);
 
     // Circular arrow controls
     document.querySelectorAll(".arrow-btn").forEach((btn) => {
@@ -1170,16 +1256,20 @@
     document.querySelectorAll(".mode-card").forEach((btn) => {
       btn.addEventListener("click", () => {
         // Remove active class from all cards then add to clicked card
-        document.querySelectorAll(".mode-card").forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll(".mode-card")
+          .forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         gameMode = btn.getAttribute("data-mode");
-        const storedScore = localStorage.getItem("snakeHighScore_" + gameMode) || 0;
+        const storedScore =
+          localStorage.getItem("snakeHighScore_" + gameMode) || 0;
         highScores[gameMode] = parseInt(storedScore);
-        highScoreStart.textContent = `Highest Score: ${Math.floor(highScores[gameMode])}`;
+        highScoreStart.textContent = `Highest Score: ${Math.floor(
+          highScores[gameMode]
+        )}`;
         // Reveal the high score, settings, and start button once a mode is selected
         highScoreStart.style.display = "block";
-        document.querySelector(".settings-group").style.display = "block";
-        startBtn.style.display = "block";
+        document.getElementById("start-menu-content").style.display = "block";
       });
     });
 
@@ -1193,14 +1283,12 @@
       difficultySelect.value = diff;
       localStorage.setItem("snakeDifficulty", diff);
       let arrowOpt = localStorage.getItem("snakeArrowPlacement") || "right";
-      console.log("arrowOpt", arrowOpt);
       arrowPlacementSelect.innerHTML =
         '<option value="left">Left</option>' +
         '<option value="middle">Middle</option>' +
         '<option value="right">Right</option>' +
         '<option value="hidden">Hidden</option>';
       arrowPlacementSelect.value = arrowOpt;
-      console.log("arrowPlacementSelect.value", arrowPlacementSelect.value)
       pauseArrowPlacement.innerHTML = arrowPlacementSelect.innerHTML;
       pauseArrowPlacement.value = arrowOpt;
     }
@@ -1215,7 +1303,13 @@
 
     // Polyfill for roundRect
     if (!CanvasRenderingContext2D.prototype.roundRect) {
-      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+      CanvasRenderingContext2D.prototype.roundRect = function (
+        x,
+        y,
+        w,
+        h,
+        r
+      ) {
         if (w < 2 * r) r = w / 2;
         if (h < 2 * r) r = h / 2;
         this.beginPath();
