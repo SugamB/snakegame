@@ -50,7 +50,7 @@
     /* -- Shake Animation for Game Board on Collision -- */
     @keyframes shake {
       0% {
-        transform: translate(0px, 0px);
+        transform: translate(0, 0);
       }
 
       25% {
@@ -66,7 +66,7 @@
       }
 
       100% {
-        transform: translate(0px, 0px);
+        transform: translate(0, 0);
       }
     }
 
@@ -74,7 +74,7 @@
       animation: shake 0.3s;
     }
 
-    /* -- Header with Logo, Score, and Pause Button -- */
+    /* -- Header with Logo, Score, and Pause/Home Button -- */
     .game-header {
       display: flex;
       justify-content: space-between;
@@ -110,6 +110,7 @@
       font-size: 18px;
     }
 
+    /* During game over, the pause-btn becomes a Home button. */
     #pause-btn {
       background: var(--surface);
       border: none;
@@ -127,7 +128,9 @@
       background: #e04e66;
     }
 
-    #pause-home-btn {
+    /* -- For overlay Home buttons -- */
+    #pause-home-btn,
+    #over-home-btn {
       background: var(--secondary);
     }
 
@@ -178,7 +181,6 @@
       position: relative;
       width: 100%;
       max-width: 500px;
-      /* Hidden during main menu */
       display: none;
     }
 
@@ -190,14 +192,12 @@
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      /* border: 3px solid var(--surface-light); */
       position: relative;
     }
 
     #game-canvas {
       width: 100%;
       height: 100%;
-      /* border-radius: 20px; */
     }
 
     /* -- Circular Arrow Controls (visible during gameplay & pause) -- */
@@ -299,6 +299,10 @@
       transform: scale(0.95);
     }
 
+    /* Small X button in Game Over overlay. */
+    /* .close-overlay {
+      position: absolute; top: 8px; right: 8px; 
+    } */
     /* --- Pause Menu --- */
     #pause-menu .pause-header {
       display: flex;
@@ -381,6 +385,12 @@
 
     input:checked+.slider:before {
       transform: translateX(24px);
+    }
+
+    /* Style for disabled toggle */
+    .toggle input:disabled+.slider {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     /* -- Game Modes (in Start Menu) -- */
@@ -468,11 +478,22 @@
         transform: translate(0, 0);
       }
     }
+
+    #close-gameover-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+    }
   </style>
 </head>
 
 <body>
-  <!-- Header: Logo, Score, and Pause Button -->
+  <!-- Header: Logo, Score, and Pause/Home Button -->
   <div class="game-header">
     <div class="logo">Snake Game</div>
     <div id="score">0</div>
@@ -529,20 +550,31 @@
       </div>
     </div>
     <!-- These elements are hidden until a mode is selected -->
-    <div id="start-menu-content" style="display: none;">
-      <p id="high-score-start" style="display: none">Highest Score: 0</p>
+    <div id="start-menu-content" style="display: none">
+      <p id="high-score-start" style="display: none">Highest Score:</p>
       <div class="settings-group">
-        <label>Wall Pass-Through
+        <label>
+          Wall Pass-Through:
           <label class="toggle">
             <input type="checkbox" id="pass-through-toggle" checked />
             <span class="slider"></span>
           </label>
         </label>
-        <label>Difficulty:
+        <label>
+          Difficulty:
           <select id="difficulty-select"></select>
         </label>
-        <label>Arrow Placement:
+        <label>
+          Arrow Placement:
           <select id="arrow-placement"></select>
+        </label>
+        <!-- Assist Toggle -->
+        <label>
+          Assist:
+          <label class="toggle">
+            <input type="checkbox" id="assist-toggle" />
+            <span class="slider"></span>
+          </label>
         </label>
       </div>
       <button id="start-btn">Start Game</button>
@@ -552,13 +584,13 @@
   <div id="pause-menu" class="overlay">
     <div class="pause-header">
       <h2>Paused</h2>
-      <!-- <button id="info-btn" class="info-icon">?</button> -->
     </div>
     <div class="pause-content">
       <label>
         Arrow Placement:
         <select id="pause-arrow-placement"></select>
       </label>
+      <!-- <p id="pause-highscore"></p> -->
       <div class="pause-buttons">
         <button id="pause-home-btn">🏠 Home</button>
       </div>
@@ -566,11 +598,12 @@
   </div>
   <!-- Game Over Menu -->
   <div id="game-over" class="overlay">
+    <button class="close-overlay" id="close-gameover-btn">✕</button>
     <h2>Game Over!</h2>
     <p id="final-score"></p>
     <p id="high-score-display"></p>
-    <button id="restart-btn">Play Again</button>
-    <button id="over-home-btn">Home</button>
+    <button id="restart-btn">🔄 Restart</button>
+    <button id="over-home-btn">🏠 Home</button>
   </div>
   <script>
     /* --- Element References --- */
@@ -598,9 +631,16 @@
       arrowControlsContainer = document.getElementById(
         "arrow-controls-container"
       ),
-      gameWrapper = document.getElementById("game-wrapper"),
-      gameHeader = document.querySelector(".game-header");
+      gameWrapper = document.getElementById("game-wrapper");
+    closeGameOverBtn = document.getElementById("close-gameover-btn");
+    const assistToggle = document.getElementById("assist-toggle");
+    let assistMode = localStorage.getItem("snakeAssist") === "true";
+    assistToggle.checked = assistMode;
 
+    assistToggle.addEventListener("change", () => {
+        assistMode = assistToggle.checked;
+        localStorage.setItem("snakeAssist", assistMode);
+    });
     /* --- Global Variables --- */
     let gridSize = 20,
       cellSize,
@@ -609,11 +649,16 @@
       direction = "right",
       nextDirection = "right",
       score = 0,
+      // High scores: separate normal and assisted scores per mode.
       highScores = {
         classic: 0,
         timeattack: 0,
         maze: 0,
         infinite: 0,
+        classic_assist: 0,
+        timeattack_assist: 0,
+        maze_assist: 0,
+        infinite_assist: 0,
       },
       gameState = "start",
       accumulator = 0,
@@ -632,7 +677,11 @@
       mazeTimer = 0,
       mazeInterval = 10000,
       particles = [];
-    // Scoring multipliers & base rewards (ensuring integer score)
+
+    // For assist pathfinding.
+    let assistPath = null;
+
+    // Scoring multipliers & base rewards.
     const difficultyMultipliers = { easy: 1, normal: 1.5, hard: 2 },
       modeMultipliers = {
         classic: 1,
@@ -642,36 +691,23 @@
       },
       baseRewards = { default: 10, high: 20, special: 50, time: 5 };
 
-    // Colors
+    // Colors.
     const colors = {
       snake: {
         head: "#FFD700",
         body: "#FF8C00",
         glow: "rgba(255,165,0,0.4)",
       },
-      // food: {
-      //   default: "#32CD32",
-      //   high: "#FF4500",
-      //   special: "#8A2BE2",
-      //   time: "#00CED1",
-      // },
-      food: {
-        default: "🍏",
-        high: "🍕",
-        special: "🐀",
-        time: "⏳",
-      },
       obstacle: { color: "#708090", border: "#2F4F4F" },
       star: "#FFFF00",
     };
 
-    // Game speed settings
+    // Game speed settings.
     let initialGameSpeed,
       minGameSpeed,
       speedIncrement,
       gameSpeed,
       specialFoodReward;
-
     function setDifficultySettings() {
       const diff = difficultySelect.value;
       if (diff === "easy") {
@@ -698,19 +734,15 @@
 
     function initCanvas() {
       const gameContainer = document.getElementById("game-container");
-      // Use the client dimensions (ignoring borders)
       let containerWidth = gameContainer.clientWidth;
       let containerHeight = gameContainer.clientHeight;
-      // Use the smaller dimension to maintain a square grid
       let size = Math.min(containerWidth, containerHeight);
-      // Compute cellSize so that it fits exactly into the grid
       cellSize = Math.floor(size / gridSize);
-      // Set the canvas dimensions to be a perfect multiple of cellSize
       canvas.width = cellSize * gridSize;
       canvas.height = cellSize * gridSize;
     }
 
-    // Updated arrow controls placement
+    // Updated arrow controls placement.
     function updateArrowControls() {
       const placement = arrowPlacementSelect.value;
       localStorage.setItem("snakeArrowPlacement", placement);
@@ -719,7 +751,6 @@
       } else {
         arrowControlsContainer.style.display = "block";
         arrowControlsContainer.style.position = "absolute";
-        // Adjust position based on selection:
         if (placement === "left") {
           arrowControlsContainer.style.left = "10px";
           arrowControlsContainer.style.right = "";
@@ -737,12 +768,14 @@
       pauseArrowPlacement.value = placement;
     }
 
-    // Generate obstacles (for maze and infinite modes)
     function generateObstacles() {
       obstacles = [];
       if (gameMode === "maze") {
-        let num = 3 + Math.min(5, Math.floor(gameLevel / 2));
-        for (let i = 0; i < num; i++) {
+        // Minimum obstacle cells based on difficulty.
+        const minCells =
+          { easy: 5, normal: 10, hard: 15 }[difficultySelect.value] || 5;
+        let numLong = Math.floor(minCells / 4); // each long obstacle might cover ~4 cells on average.
+        for (let i = 0; i < numLong; i++) {
           const len = 3 + Math.floor(Math.random() * 4),
             horizontal = Math.random() > 0.5;
           let startX, startY;
@@ -758,10 +791,69 @@
               obstacles.push({ x: startX, y: startY + j });
           }
         }
+        // Then, if total cells < required, add two-celled obstacles.
+        while (obstacles.length < minCells) {
+          let horizontal = Math.random() > 0.5;
+          let startX = Math.floor(
+            Math.random() * (gridSize - (horizontal ? 1 : 0))
+          );
+          let startY = Math.floor(
+            Math.random() * (gridSize - (horizontal ? 0 : 1))
+          );
+          // Check if these two cells are free.
+          if (
+            !snake.some((seg) => seg.x === startX && seg.y === startY) &&
+            !obstacles.some((obs) => obs.x === startX && obs.y === startY)
+          ) {
+            let second = {
+              x: horizontal ? startX + 1 : startX,
+              y: horizontal ? startY : startY + 1,
+            };
+            if (
+              !snake.some(
+                (seg) => seg.x === second.x && seg.y === second.y
+              ) &&
+              !obstacles.some(
+                (obs) => obs.x === second.x && obs.y === second.y
+              )
+            ) {
+              obstacles.push({ x: startX, y: startY });
+              obstacles.push(second);
+            }
+          }
+        }
         obstacles = obstacles.filter(
           (obs) => !snake.some((seg) => seg.x === obs.x && seg.y === obs.y)
         );
       }
+    }
+
+    function goToMainMenu() {
+      gameWrapper.style.display = "none";
+      pauseMenu.style.display = "none";
+      gameOverMenu.style.display = "none";
+      document.querySelector(".game-header").style.display = "none";
+      gameInfo.style.display = "none";
+      document
+        .querySelectorAll(".mode-card")
+        .forEach((b) => b.classList.remove("active"));
+      document.getElementById("start-menu-content").style.display = "none";
+      startMenu.style.display = "block";
+      updateMainMenuHighScore();
+    }
+
+    function updateMainMenuHighScore() {
+      if (!gameMode) return;
+      let normalHS =
+        parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+      let assistHS =
+        parseInt(
+          localStorage.getItem("snakeHighScore_" + gameMode + "_assist")
+        ) || 0;
+      highScoreStart.textContent =
+        `Highest Score: ${normalHS}` +
+        (assistHS ? ` | Assisted: ${assistHS}` : "");
+      highScoreStart.style.display = "block";
     }
 
     function initGame() {
@@ -769,18 +861,15 @@
       updateArrowControls();
       gameWrapper.style.display = "block";
       setTimeout(initCanvas, 0);
-
-      // Show game elements and hide main menu
+      // Show game elements and hide main menu.
       gameInfo.style.display = "flex";
-      gameHeader.style.display = "flex";
+      document.querySelector(".game-header").style.display = "flex";
       gameWrapper.style.display = "block";
       startMenu.style.display = "none";
       pauseMenu.style.display = "none";
       gameOverMenu.style.display = "none";
-      // Show arrows if not hidden
       arrowControlsContainer.style.display =
         arrowPlacementSelect.value === "hidden" ? "none" : "block";
-      // Initialize snake and states
       snake = [
         { x: 5, y: 10 },
         { x: 4, y: 10 },
@@ -807,7 +896,6 @@
       collisionAnimationTime = 0;
       specialFoodTimer = 0;
       particles = [];
-      // Update game mode display text
       gameModeDisplay.textContent =
         gameMode.charAt(0).toUpperCase() +
         gameMode.slice(1) +
@@ -816,6 +904,8 @@
     }
 
     function placeFood() {
+      let attempts = 0,
+        maxAttempts = 100;
       let rand = Math.random(),
         type;
       if (rand < 0.05) {
@@ -831,6 +921,8 @@
           y: Math.floor(Math.random() * gridSize),
           type,
         };
+        attempts++;
+        if (attempts > maxAttempts) break;
       } while (!isPositionValid(newFood.x, newFood.y));
       food = newFood;
     }
@@ -864,7 +956,6 @@
     }
 
     function spawnParticles(x, y) {
-      // Spawn 10 particles at (x,y)
       for (let i = 0; i < 10; i++) {
         particles.push({
           x: x * cellSize + cellSize / 2,
@@ -875,6 +966,23 @@
           maxLife: 1000,
         });
       }
+    }
+
+    // Allow the tail cell to be considered walkable.
+    function isWalkable(pos) {
+      let tail = snake[snake.length - 1];
+      for (let seg of snake) {
+        if (pos.x === seg.x && pos.y === seg.y) {
+          if (pos.x === tail.x && pos.y === tail.y) continue;
+          return false;
+        }
+      }
+      if (
+        (gameMode === "maze" || gameMode === "infinite") &&
+        obstacles.some((obs) => obs.x === pos.x && obs.y === pos.y)
+      )
+        return false;
+      return true;
     }
 
     function updateSnake() {
@@ -915,11 +1023,17 @@
       if (head.x === food.x && head.y === food.y) {
         score += Math.floor(getScoreIncrement(food.type));
         updateScore();
-        // Particle effect on food consumption
         spawnParticles(food.x, food.y);
-        if (food.type === "time") timeAttackTimer += timeAttackIncrement;
+        gameSpeed = Math.max(gameSpeed - speedIncrement, minGameSpeed);
+        // In infinite mode, level increases with each food.
+        if (gameMode === "infinite") {
+          gameLevel++;
+          gameModeDisplay.textContent = `Infinite - Level ${gameLevel}`;
+        }
         placeFood();
-      } else snake.pop();
+      } else {
+        snake.pop();
+      }
     }
 
     function checkCollisions() {
@@ -1002,29 +1116,24 @@
       const { x, y, type } = food;
       ctx.save();
       ctx.translate(x * cellSize, y * cellSize);
-
-      // Clear previous drawing
       ctx.clearRect(0, 0, cellSize, cellSize);
-
-      // Set the font and alignment for drawing the emoji
-      ctx.font = `${cellSize * 0.8}px sans-serif`;  // Adjust font size based on cell size
+      ctx.font = `${cellSize * 0.8}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      // Draw the correct emoji based on the food type
       if (type === "default") {
-        ctx.fillText("🍏", cellSize / 2, cellSize / 2);  // Default food: Apple
+        ctx.fillText("🍏", cellSize / 2, cellSize / 2);
       } else if (type === "high") {
-        ctx.fillText("🍕", cellSize / 2, cellSize / 2);  // High food: Pizza
+        ctx.fillText("🍕", cellSize / 2, cellSize / 2);
       } else if (type === "special") {
         let alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
         ctx.fillStyle = `rgba(138,43,226,${alpha})`;
-        ctx.fillText("🐀", cellSize / 2, cellSize / 2);  // Special food: Rat
+        ctx.fillText("🐀", cellSize / 2, cellSize / 2);
       } else if (type === "time") {
-        ctx.fillText("⏳", cellSize / 2, cellSize / 2);  // Time food: Hourglass
+        ctx.fillText("⏳", cellSize / 2, cellSize / 2);
       }
       ctx.restore();
     }
+
     function drawObstacles() {
       obstacles.forEach((obs) => {
         ctx.fillStyle = colors.obstacle.color;
@@ -1060,9 +1169,269 @@
       ctx.restore();
     }
 
+    // Draw an arrow at (x,y) with a given angle.
+    function drawArrow(x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(-5, 0);
+      ctx.lineTo(5, 0);
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(5, 0);
+      ctx.lineTo(0, -3);
+      ctx.lineTo(0, 3);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw assist path as a series of arrows.
+    function drawAssistPath(path) {
+      if (!path || path.length < 2) return;
+      for (let i = 0; i < path.length - 1; i++) {
+        let current = path[i];
+        let next = path[i + 1];
+        let startX = current.x * cellSize + cellSize / 2;
+        let startY = current.y * cellSize + cellSize / 2;
+        let endX = next.x * cellSize + cellSize / 2;
+        let endY = next.y * cellSize + cellSize / 2;
+        let angle = Math.atan2(endY - startY, endX - startX);
+        drawArrow(startX, startY, angle);
+      }
+    }
+
+    // A* Pathfinding functions for assist/auto-play.
+    function findPath(start, end) {
+      let openSet = [];
+      let cameFrom = {};
+      let gScore = {};
+      let fScore = {};
+      function hash(pos) {
+        return pos.x + "," + pos.y;
+      }
+      openSet.push(start);
+      gScore[hash(start)] = 0;
+      fScore[hash(start)] = heuristic(start, end);
+      while (openSet.length > 0) {
+        let current = openSet.reduce((a, b) =>
+          fScore[hash(a)] < fScore[hash(b)] ? a : b
+        );
+        if (current.x === end.x && current.y === end.y)
+          return reconstructPath(cameFrom, current);
+        openSet = openSet.filter((n) => hash(n) !== hash(current));
+        for (let neighbor of getNeighbors(current)) {
+          if (!isWalkable(neighbor)) continue;
+          let tentative_gScore = gScore[hash(current)] + 1;
+          if (tentative_gScore < (gScore[hash(neighbor)] || Infinity)) {
+            cameFrom[hash(neighbor)] = current;
+            gScore[hash(neighbor)] = tentative_gScore;
+            fScore[hash(neighbor)] =
+              tentative_gScore + heuristic(neighbor, end);
+            if (!openSet.some((n) => hash(n) === hash(neighbor))) {
+              openSet.push(neighbor);
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function getNeighbors(pos) {
+      let neighbors = [];
+      const directions = [
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
+      ];
+      for (let d of directions) {
+        let nx = pos.x + d.x,
+          ny = pos.y + d.y;
+        if (passThroughToggle.checked) {
+          nx = (nx + gridSize) % gridSize;
+          ny = (ny + gridSize) % gridSize;
+          neighbors.push({ x: nx, y: ny });
+        } else {
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize)
+            neighbors.push({ x: nx, y: ny });
+        }
+      }
+      return neighbors;
+    }
+
+    // Modified heuristic to use wrap-around distance when wall pass-through is enabled.
+    function heuristic(a, b) {
+      if (passThroughToggle.checked) {
+        let dx = Math.min(
+          Math.abs(a.x - b.x),
+          gridSize - Math.abs(a.x - b.x)
+        );
+        let dy = Math.min(
+          Math.abs(a.y - b.y),
+          gridSize - Math.abs(a.y - b.y)
+        );
+        return dx + dy;
+      } else {
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      }
+    }
+
+    function reconstructPath(cameFrom, current) {
+      let totalPath = [current];
+      function hash(pos) {
+        return pos.x + "," + pos.y;
+      }
+      while (cameFrom[hash(current)]) {
+        current = cameFrom[hash(current)];
+        totalPath.push(current);
+      }
+      return totalPath.reverse();
+    }
+
+    // Simulation functions for safety checking.
+    function getNeighborsForSimulation(pos) {
+      let neighbors = [];
+      const directions = [
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
+      ];
+      for (let d of directions) {
+        let nx = pos.x + d.x,
+          ny = pos.y + d.y;
+        if (passThroughToggle.checked) {
+          nx = (nx + gridSize) % gridSize;
+          ny = (ny + gridSize) % gridSize;
+          neighbors.push({ x: nx, y: ny });
+        } else {
+          if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize)
+            neighbors.push({ x: nx, y: ny });
+        }
+      }
+      return neighbors;
+    }
+    function isWalkableSimulation(pos, snakeArray) {
+      let tail = snakeArray[snakeArray.length - 1];
+      for (let seg of snakeArray) {
+        if (pos.x === seg.x && pos.y === seg.y) {
+          if (pos.x === tail.x && pos.y === tail.y) continue;
+          return false;
+        }
+      }
+      if (
+        (gameMode === "maze" || gameMode === "infinite") &&
+        obstacles.some((obs) => obs.x === pos.x && obs.y === pos.y)
+      )
+        return false;
+      return true;
+    }
+    function findPathForSimulation(start, end, snakeArray) {
+      let openSet = [];
+      let cameFrom = {};
+      let gScore = {};
+      let fScore = {};
+      function hash(pos) {
+        return pos.x + "," + pos.y;
+      }
+      openSet.push(start);
+      gScore[hash(start)] = 0;
+      fScore[hash(start)] = heuristic(start, end);
+      while (openSet.length > 0) {
+        let current = openSet.reduce((a, b) =>
+          fScore[hash(a)] < fScore[hash(b)] ? a : b
+        );
+        if (current.x === end.x && current.y === end.y)
+          return reconstructPath(cameFrom, current);
+        openSet = openSet.filter((n) => hash(n) !== hash(current));
+        for (let neighbor of getNeighborsForSimulation(current)) {
+          if (!isWalkableSimulation(neighbor, snakeArray)) continue;
+          let tentative_gScore = gScore[hash(current)] + 1;
+          if (tentative_gScore < (gScore[hash(neighbor)] || Infinity)) {
+            cameFrom[hash(neighbor)] = current;
+            gScore[hash(neighbor)] = tentative_gScore;
+            fScore[hash(neighbor)] =
+              tentative_gScore + heuristic(neighbor, end);
+            if (!openSet.some((n) => hash(n) === hash(neighbor))) {
+              openSet.push(neighbor);
+            }
+          }
+        }
+      }
+      return null;
+    }
+    // Improved isPathSafe – also check that intermediate cells aren’t in snake.
+    function isPathSafe(candidatePath) {
+      if (!candidatePath) return false;
+      for (let i = 1; i < candidatePath.length - 1; i++) {
+        if (
+          snake.some(
+            (seg) =>
+              seg.x === candidatePath[i].x && seg.y === candidatePath[i].y
+          )
+        )
+          return false;
+      }
+      let simulatedSnake = snake.map((seg) => ({ ...seg }));
+      let simulatedFood = { ...food };
+      for (let i = 1; i < candidatePath.length; i++) {
+        let newHead = candidatePath[i];
+        simulatedSnake.unshift({ ...newHead });
+        if (newHead.x === simulatedFood.x && newHead.y === simulatedFood.y) {
+          simulatedFood = null;
+        } else {
+          simulatedSnake.pop();
+        }
+      }
+      let tail = simulatedSnake[simulatedSnake.length - 1];
+      let pathToTail = findPathForSimulation(
+        simulatedSnake[0],
+        tail,
+        simulatedSnake
+      );
+      return pathToTail !== null;
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += cellSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += cellSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPassThroughIndicator() {
+      if (!passThroughToggle.checked) {
+        ctx.save();
+        ctx.strokeStyle = "#2A9D8F";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+        ctx.restore();
+      }
+    }
+
     function update(deltaTime) {
       accumulator += deltaTime;
-      // Update maze obstacles every mazeInterval in maze mode
       if (gameMode === "maze") {
         mazeTimer += deltaTime;
         if (mazeTimer >= mazeInterval) {
@@ -1077,7 +1446,6 @@
       }
       if (gameState === "collision") {
         collisionAnimationTime += deltaTime;
-        // Add shake effect to game board during collision
         document.getElementById("game-container").classList.add("shake");
         if (collisionAnimationTime >= collisionAnimationDuration) endGame();
       } else {
@@ -1092,25 +1460,23 @@
         let percent = Math.max(timeAttackTimer / timeAttackDuration, 0);
         timerFill.style.transform = `scaleX(${percent})`;
       }
-      if (gameMode === "infinite" && gameState === "running") {
-        infiniteTimer += deltaTime;
-        if (infiniteTimer > 10000) {
-          gameLevel++;
-          gameSpeed = Math.max(gameSpeed - speedIncrement, minGameSpeed);
-          infiniteTimer = 0;
-          gameModeDisplay.textContent = `Infinite - Level ${gameLevel}`;
-        }
-      }
-      if (food.type === "special" && specialFoodTimer > 0) {
-        specialFoodTimer -= deltaTime;
-        if (specialFoodTimer <= 0) placeFood();
-      }
+      // Note: In Infinite mode, level progress is now based on eating food.
       updateParticles(deltaTime);
     }
 
     function drawGame() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawGrid(); // Draw the subtle grid overlay
+      drawGrid();
+      // Recalculate assist path (if enabled) and draw it if safe.
+      if (assistMode) {
+        let candidate = findPath(snake[0], food);
+        if (candidate && isPathSafe(candidate)) {
+          assistPath = candidate;
+        } else {
+          assistPath = null;
+        }
+        if (assistPath) drawAssistPath(assistPath);
+      }
       drawFood();
       if (gameMode === "maze" || gameMode === "infinite") drawObstacles();
       snake.forEach((seg, i) => drawSnakeSegment(seg, i));
@@ -1127,45 +1493,7 @@
           (collisionAnimationTime / collisionAnimationDuration) * 2 * Math.PI;
         drawSpinningStar(snake[0].x, snake[0].y, cellSize * 0.5, angle);
       }
-      // Draw the wall pass-through indicator
       drawPassThroughIndicator();
-    }
-
-    function drawGrid() {
-      ctx.save();
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"; // subtle, light grid lines
-      ctx.lineWidth = 1;
-      // Draw vertical lines
-      for (let x = 0; x <= canvas.width; x += cellSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      // Draw horizontal lines
-      for (let y = 0; y <= canvas.height; y += cellSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    function drawPassThroughIndicator() {
-      if (!passThroughToggle.checked) {
-        ctx.save();
-        // Use the CSS variable for the border color
-        ctx.strokeStyle = "#2A9D8F";
-        ctx.lineWidth = 3; // Set the border width to 3px as per CSS
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-        ctx.shadowBlur = 20;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
-
-        // Draw a border around the entire canvas
-        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
-        ctx.restore();
-      }
     }
 
     function gameLoop(timestamp) {
@@ -1182,47 +1510,96 @@
       gameState = "ended";
       arrowControlsContainer.style.display = "none";
       finalScoreEl.textContent = `Score: ${Math.floor(score)}`;
-      if (score > (highScores[gameMode] || 0)) {
-        highScores[gameMode] = score;
-        localStorage.setItem("snakeHighScore_" + gameMode, score);
-      }
-      highScoreDisplay.textContent = `High Score: ${Math.floor(
-        highScores[gameMode] || 0
-      )}`;
+      // Update high scores 
+        if (assistMode) {
+          let currentAssist =
+            parseInt(
+              localStorage.getItem("snakeHighScore_" + gameMode + "_assist")
+            ) || 0;
+          if (score > currentAssist) {
+            localStorage.setItem(
+              "snakeHighScore_" + gameMode + "_assist",
+              score
+            );
+            highScores[gameMode + "_assist"] = score;
+          }
+        } else {
+          let currentNormal =
+            parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+          if (score > currentNormal) {
+            localStorage.setItem("snakeHighScore_" + gameMode, score);
+            highScores[gameMode] = score;
+          }
+        }
+      
+      let normalHS =
+        parseInt(localStorage.getItem("snakeHighScore_" + gameMode)) || 0;
+      let assistHS =
+        parseInt(
+          localStorage.getItem("snakeHighScore_" + gameMode + "_assist")
+        ) || 0;
+      highScoreDisplay.textContent =
+        `High Score: ${normalHS}` +
+        (assistHS ? ` | Assisted: ${assistHS}` : "");
       gameOverMenu.style.display = "block";
+      // Replace header pause-btn with a Home button.
+      pauseBtn.textContent = "🏠";
+      pauseBtn.onclick = goToMainMenu;
     }
 
     /* --- Controls --- */
-    // Spacebar & Arrow Keys for controlling/pause/resume
     function togglePauseResume() {
+      // Only allow pause/resume if game is running or paused.
+      if (!(gameState === "running" || gameState === "paused")) return;
       pauseBtn.disabled = true;
       gameState = gameState === "running" ? "paused" : "running";
       pauseMenu.style.display = gameState === "paused" ? "block" : "none";
       pauseBtn.textContent = gameState === "paused" ? "▶️" : "⏸️";
-
       if (gameState === "running") {
         lastTime = performance.now();
         requestAnimationFrame(gameLoop);
       }
-
-      setTimeout(() => pauseBtn.disabled = false, 100);
+      setTimeout(() => (pauseBtn.disabled = false), 100);
     }
-
     document.addEventListener("keydown", (e) => {
-      if (gameState === "running" && ["ArrowUp", "w"].includes(e.key) && direction !== "down") nextDirection = "up";
-      else if (gameState === "running" && ["ArrowDown", "s"].includes(e.key) && direction !== "up") nextDirection = "down";
-      else if (gameState === "running" && ["ArrowLeft", "a"].includes(e.key) && direction !== "right") nextDirection = "left";
-      else if (gameState === "running" && ["ArrowRight", "d"].includes(e.key) && direction !== "left") nextDirection = "right";
-
-      if ([" ", "Escape"].includes(e.key)) togglePauseResume();
+      // Record user input timestamp.
+      lastUserInputTime = Date.now();
+      if (
+        gameState === "running" &&
+        ["ArrowUp", "w"].includes(e.key) &&
+        direction !== "down"
+      )
+        nextDirection = "up";
+      else if (
+        gameState === "running" &&
+        ["ArrowDown", "s"].includes(e.key) &&
+        direction !== "up"
+      )
+        nextDirection = "down";
+      else if (
+        gameState === "running" &&
+        ["ArrowLeft", "a"].includes(e.key) &&
+        direction !== "right"
+      )
+        nextDirection = "left";
+      else if (
+        gameState === "running" &&
+        ["ArrowRight", "d"].includes(e.key) &&
+        direction !== "left"
+      )
+        nextDirection = "right";
+      // Only toggle pause if game is running or paused.
+      if (
+        (e.key === " " || e.key === "Escape") &&
+        (gameState === "running" || gameState === "paused")
+      )
+        togglePauseResume();
     });
-
     pauseBtn.addEventListener("click", togglePauseResume);
-
-    // Circular arrow controls
     document.querySelectorAll(".arrow-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const newDir = btn.getAttribute("data-dir");
+        lastUserInputTime = Date.now();
         if (
           (direction === "left" && newDir === "right") ||
           (direction === "right" && newDir === "left") ||
@@ -1233,47 +1610,41 @@
         nextDirection = newDir;
       });
     });
-
-    // Pause Menu: Home button
-    pauseHomeBtn.addEventListener("click", () => location.reload());
-
-    // Game Over Menu buttons
+    pauseHomeBtn.addEventListener("click", goToMainMenu);
+    overHomeBtn.addEventListener("click", goToMainMenu);
     restartBtn.addEventListener("click", initGame);
     startBtn.addEventListener("click", () => {
       if (!gameMode) {
         alert("Please select a game mode before starting!");
         return;
       }
-      // Hide the start menu overlay
       startMenu.style.display = "none";
-      // Start the game
       initGame();
     });
-
-    overHomeBtn.addEventListener("click", () => location.reload());
-
-    // Mode Selection: remove default selection; when a card is clicked, show the rest of the options
     document.querySelectorAll(".mode-card").forEach((btn) => {
       btn.addEventListener("click", () => {
-        // Remove active class from all cards then add to clicked card
+        // Clear selection and hide start-menu-content.
         document
           .querySelectorAll(".mode-card")
           .forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         gameMode = btn.getAttribute("data-mode");
-        const storedScore =
+        let storedScore =
           localStorage.getItem("snakeHighScore_" + gameMode) || 0;
+        let storedAssist =
+          localStorage.getItem("snakeHighScore_" + gameMode + "_assist") || 0;
         highScores[gameMode] = parseInt(storedScore);
-        highScoreStart.textContent = `Highest Score: ${Math.floor(
-          highScores[gameMode]
-        )}`;
-        // Reveal the high score, settings, and start button once a mode is selected
+        highScores[gameMode + "_assist"] = parseInt(storedAssist);
+        highScoreStart.textContent =
+          `Highest Score: ${storedScore}` +
+          (storedAssist ? ` | Assisted: ${storedAssist}` : "");
         highScoreStart.style.display = "block";
+        // Hide settings after selection.
         document.getElementById("start-menu-content").style.display = "block";
       });
     });
 
-    // Persist difficulty and arrow placement settings
+    // Persist difficulty and arrow placement settings.
     function initSettings() {
       let diff = localStorage.getItem("snakeDifficulty") || "normal";
       difficultySelect.innerHTML =
@@ -1300,8 +1671,6 @@
       arrowPlacementSelect.value = pauseArrowPlacement.value;
       updateArrowControls();
     });
-
-    // Polyfill for roundRect
     if (!CanvasRenderingContext2D.prototype.roundRect) {
       CanvasRenderingContext2D.prototype.roundRect = function (
         x,
@@ -1322,8 +1691,15 @@
         return this;
       };
     }
-    // Initialize settings on load
     initSettings();
+
+    // Close Game Over overlay X button behavior.
+    closeGameOverBtn.addEventListener("click", () => {
+      gameOverMenu.style.display = "none";
+      // Replace header pause-btn with Home button.
+      pauseBtn.textContent = "🏠";
+      pauseBtn.onclick = goToMainMenu;
+    });
   </script>
 </body>
 
