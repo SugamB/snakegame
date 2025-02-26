@@ -370,6 +370,7 @@
     /* -- Game Modes (in Start Menu) -- */
     .game-modes {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -380,13 +381,18 @@
       padding: 10px;
       text-align: center;
       cursor: pointer;
-      flex: 1;
+      flex: 1 1 40%;
       border: 2px solid transparent;
+      transition: transform 0.2s, border-color 0.2s;
     }
 
     .mode-card.active {
       border-color: var(--primary);
       background: var(--surface);
+    }
+
+    .mode-card:hover {
+      transform: scale(1.02);
     }
 
     .mode-card h3 {
