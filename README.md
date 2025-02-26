@@ -1,5 +1,5 @@
 # snakegame
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/29e74d64-338e-4cb8-a675-64df2b03e379" />
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/fcf81a2c-9b9d-4c6c-8407-263a316917e8" />
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/776b559e-d5ec-4fb0-b53f-6066ac794a1d" />
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/600da9dd-8336-413d-a5d2-efdd9e45cc78" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/a86d1c33-1877-44a4-851f-33981b7a4d2a" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/2223b420-b582-49cd-9d16-20e27cf63c29" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/efffae18-488a-4580-b0e6-16a7c94a3282" />
+<img width="500" alt="image" src="https://github.com/user-attachments/assets/bb49426e-2d34-420c-9d62-7dc39ec46722" />
