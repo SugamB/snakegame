@@ -659,11 +659,17 @@
         body: "#FF8C00",
         glow: "rgba(255,165,0,0.4)",
       },
+      // food: {
+      //   default: "#32CD32",
+      //   high: "#FF4500",
+      //   special: "#8A2BE2",
+      //   time: "#00CED1",
+      // },
       food: {
-        default: "#32CD32",
-        high: "#FF4500",
-        special: "#8A2BE2",
-        time: "#00CED1",
+        default: "🍏",
+        high: "🍕",
+        special: "🐀",
+        time: "⏳",
       },
       obstacle: { color: "#708090", border: "#2F4F4F" },
       star: "#FFFF00",
@@ -1007,24 +1013,29 @@
       const { x, y, type } = food;
       ctx.save();
       ctx.translate(x * cellSize, y * cellSize);
-      ctx.beginPath();
-      ctx.roundRect(
-        cellSize * 0.1,
-        cellSize * 0.1,
-        cellSize * 0.8,
-        cellSize * 0.8,
-        cellSize * 0.2
-      );
-      if (type === "default") ctx.fillStyle = colors.food.default;
-      else if (type === "high") ctx.fillStyle = colors.food.high;
-      else if (type === "special") {
+
+      // Clear previous drawing
+      ctx.clearRect(0, 0, cellSize, cellSize);
+
+      // Set the font and alignment for drawing the emoji
+      ctx.font = `${cellSize * 0.8}px sans-serif`;  // Adjust font size based on cell size
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Draw the correct emoji based on the food type
+      if (type === "default") {
+        ctx.fillText("🍏", cellSize / 2, cellSize / 2);  // Default food: Apple
+      } else if (type === "high") {
+        ctx.fillText("🍕", cellSize / 2, cellSize / 2);  // High food: Pizza
+      } else if (type === "special") {
         let alpha = 0.5 + 0.5 * Math.sin(Date.now() / 100);
         ctx.fillStyle = `rgba(138,43,226,${alpha})`;
-      } else if (type === "time") ctx.fillStyle = colors.food.time;
-      ctx.fill();
+        ctx.fillText("🐀", cellSize / 2, cellSize / 2);  // Special food: Rat
+      } else if (type === "time") {
+        ctx.fillText("⏳", cellSize / 2, cellSize / 2);  // Time food: Hourglass
+      }
       ctx.restore();
     }
-
     function drawObstacles() {
       obstacles.forEach((obs) => {
         ctx.fillStyle = colors.obstacle.color;
